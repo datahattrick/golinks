@@ -1,0 +1,9 @@
+/* HTMX Loading States */
+.htmx-request {
+    opacity: 0.5;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
