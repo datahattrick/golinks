@@ -16,19 +16,57 @@ services:
       timeout: 5s
       retries: 5
 
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    container_name: golinks-oidc
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      JSON_CONFIG: |
+        {
+          "interactiveLogin": true,
+          "httpServer": "NettyWrapper",
+          "tokenCallbacks": [
+            {
+              "issuerId": "golinks",
+              "tokenExpiry": 3600,
+              "requestMappings": [
+                {
+                  "requestParam": "grant_type",
+                  "match": "*",
+                  "claims": {
+                    "sub": "test-user",
+                    "email": "user@example.com",
+                    "name": "Test User",
+                    "picture": "https://i.pravatar.cc/150?u=test-user"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/golinks/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     container_name: golinks-app
     depends_on:
       postgres:
         condition: service_healthy
+      oidc:
+        condition: service_healthy
     environment:
       SERVER_ADDR: ":3000"
       DATABASE_URL: "postgres://golinks:golinks@postgres:5432/golinks?sslmode=disable"
-      # OIDC_ISSUER: ""
-      # OIDC_CLIENT_ID: ""
-      # OIDC_CLIENT_SECRET: ""
-      # OIDC_REDIRECT_URL: "http://localhost:3000/auth/callback"
+      OIDC_ISSUER: "http://oidc:8080/golinks"
+      OIDC_CLIENT_ID: "golinks-app"
+      OIDC_CLIENT_SECRET: "secret"
+      OIDC_REDIRECT_URL: "http://localhost:3000/auth/callback"
     ports:
       - "3000:3000"
     profiles:
