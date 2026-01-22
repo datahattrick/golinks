@@ -1,0 +1,86 @@
+{{if .User}}
+<div class="mb-6">
+    <form
+        class="flex gap-2 items-center"
+        hx-post="/links"
+        hx-target="#links-body"
+        hx-swap="afterbegin"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+        <input type="text" name="keyword" placeholder="keyword" required
+            class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none w-32">
+        <input type="url" name="url" placeholder="https://..." required
+            class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none flex-1">
+        <input type="text" name="description" placeholder="description"
+            class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none w-40 hidden sm:block">
+        <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+            Create
+        </button>
+    </form>
+</div>
+{{end}}
+
+<div class="flex flex-col items-center justify-center py-12 sm:py-20">
+    <h1 class="text-5xl sm:text-7xl font-bold text-indigo-600 dark:text-indigo-400 font-mono mb-6">go/</h1>
+    <div class="w-full max-w-xl">
+        <input
+            type="search"
+            name="q"
+            placeholder="Search or enter a keyword..."
+            hx-get="/search"
+            hx-trigger="input changed delay:300ms, search"
+            hx-target="#links-body"
+            hx-swap="innerHTML"
+            autocomplete="off"
+            autofocus
+            class="w-full px-5 py-4 text-lg rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-shadow">
+    </div>
+</div>
+
+<div class="mt-8">
+    <table class="w-full">
+        <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th class="pb-3 font-medium">Keyword</th>
+                <th class="pb-3 font-medium">URL</th>
+                <th class="pb-3 font-medium text-right">Clicks</th>
+                {{if .User}}<th class="pb-3"></th>{{end}}
+            </tr>
+        </thead>
+        <tbody id="links-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+            {{range .Links}}
+            <tr id="link-{{.ID}}" class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <td class="py-3 pr-4">
+                    <a href="/go/{{.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">go/{{.Keyword}}</a>
+                    {{if .Description}}<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{.Description}}</p>{{end}}
+                </td>
+                <td class="py-3 pr-4 max-w-xs truncate">
+                    <a href="{{.URL}}" target="_blank" rel="noopener" class="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">{{.URL}}</a>
+                </td>
+                <td class="py-3 text-right font-mono text-sm text-gray-500 dark:text-gray-400">{{.ClickCount}}</td>
+                {{if $.User}}
+                <td class="py-3 pl-4 text-right">
+                    {{if .CreatedBy}}
+                        {{if eq .CreatedBy.String $.User.ID.String}}
+                        <button
+                            class="text-xs px-2 py-1 rounded text-red-600 dark:text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                            hx-delete="/links/{{.ID}}"
+                            hx-target="#link-{{.ID}}"
+                            hx-swap="outerHTML"
+                            hx-confirm="Delete this link?">
+                            Delete
+                        </button>
+                        {{end}}
+                    {{end}}
+                </td>
+                {{end}}
+            </tr>
+            {{else}}
+            <tr>
+                <td colspan="{{if $.User}}4{{else}}3{{end}}" class="py-12 text-center text-gray-500 dark:text-gray-400">
+                    No links yet
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>

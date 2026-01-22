@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: golinks-postgres
+    environment:
+      POSTGRES_USER: golinks
+      POSTGRES_PASSWORD: golinks
+      POSTGRES_DB: golinks
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U golinks -d golinks"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: golinks-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_ADDR: ":3000"
+      DATABASE_URL: "postgres://golinks:golinks@postgres:5432/golinks?sslmode=disable"
+      # OIDC_ISSUER: ""
+      # OIDC_CLIENT_ID: ""
+      # OIDC_CLIENT_SECRET: ""
+      # OIDC_REDIRECT_URL: "http://localhost:3000/auth/callback"
+    ports:
+      - "3000:3000"
+    profiles:
+      - full
+
+volumes:
+  postgres_data:
