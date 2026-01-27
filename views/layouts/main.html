@@ -6,13 +6,45 @@
     <title>{{if .Title}}{{.Title}} - {{end}}GoLinks</title>
     <script src="https://unpkg.com/htmx.org@2.0.0"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
                         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfeff',
+                            100: '#cffafe',
+                            200: '#a5f3fc',
+                            300: '#67e8f9',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            700: '#0e7490',
+                            800: '#155e75',
+                            900: '#164e63',
+                            950: '#083344',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 20s ease-in-out infinite',
+                        'float-delayed': 'float 25s ease-in-out infinite reverse',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
+                            '25%': { transform: 'translate(10px, -15px) rotate(1deg)' },
+                            '50%': { transform: 'translate(-5px, 10px) rotate(-1deg)' },
+                            '75%': { transform: 'translate(-15px, -5px) rotate(0.5deg)' },
+                        }
                     }
                 }
             }
@@ -24,13 +56,168 @@
             document.documentElement.classList.remove('dark')
         }
     </script>
-</head>
-<body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
-    {{template "partials/navbar" .}}
+    <style>
+        /* Animated gradient background */
+        .bg-animated {
+            background: linear-gradient(-45deg, #f0fdfa, #ecfeff, #f0f9ff, #eff6ff, #f5f3ff);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        .dark .bg-animated {
+            background: linear-gradient(-45deg, #022c22, #042f2e, #0c1929, #0f172a, #1e1b4b);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-    <main class="max-w-5xl mx-auto px-4 py-6">
-        {{embed}}
-    </main>
+        /* Network nodes animation */
+        .network-bg {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .network-node {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+        .dark .network-node {
+            opacity: 0.2;
+        }
+        .node-1 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.3) 0%, transparent 70%);
+            top: 10%;
+            left: 10%;
+            animation: float 20s ease-in-out infinite;
+        }
+        .node-2 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+            top: 60%;
+            right: 5%;
+            animation: float 25s ease-in-out infinite reverse;
+        }
+        .node-3 {
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(20, 184, 166, 0.25) 0%, transparent 70%);
+            bottom: 20%;
+            left: 30%;
+            animation: float 22s ease-in-out infinite 2s;
+        }
+        .node-4 {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
+            top: 30%;
+            right: 25%;
+            animation: float 18s ease-in-out infinite 1s reverse;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -40px) scale(1.05); }
+            50% { transform: translate(-20px, 30px) scale(0.95); }
+            75% { transform: translate(-40px, -20px) scale(1.02); }
+        }
+
+        /* Connection lines */
+        .connection-lines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.3;
+        }
+        .dark .connection-lines {
+            opacity: 0.15;
+        }
+        .connection-lines svg {
+            width: 100%;
+            height: 100%;
+        }
+        .connection-line {
+            stroke: url(#lineGradient);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 8 4;
+            animation: dash 30s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+
+        /* Glass morphism cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Smooth scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.5);
+        }
+    </style>
+</head>
+<body class="h-full bg-animated text-gray-900 dark:text-gray-100 transition-colors font-sans">
+    <!-- Animated background elements -->
+    <div class="network-bg">
+        <div class="network-node node-1"></div>
+        <div class="network-node node-2"></div>
+        <div class="network-node node-3"></div>
+        <div class="network-node node-4"></div>
+    </div>
+    <div class="connection-lines">
+        <svg preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.5" />
+                    <stop offset="50%" style="stop-color:#8b5cf6;stop-opacity:0.3" />
+                    <stop offset="100%" style="stop-color:#14b8a6;stop-opacity:0.5" />
+                </linearGradient>
+            </defs>
+            <path class="connection-line" d="M0,100 Q400,50 800,150 T1600,100" />
+            <path class="connection-line" d="M0,300 Q300,250 600,350 T1200,300 T1800,280" style="animation-delay: -10s;" />
+            <path class="connection-line" d="M0,500 Q500,400 1000,550 T2000,480" style="animation-delay: -20s;" />
+        </svg>
+    </div>
+
+    <!-- Content wrapper -->
+    <div class="relative z-10 min-h-full flex flex-col">
+        {{template "partials/navbar" .}}
+
+        <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+            {{embed}}
+        </main>
+
+        <footer class="relative z-10 text-center py-4 text-sm text-gray-500 dark:text-gray-400">
+            <p>GoLinks - Fast URL shortcuts for your team</p>
+        </footer>
+    </div>
 
     <script>
         function toggleDarkMode() {
