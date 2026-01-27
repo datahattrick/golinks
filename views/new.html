@@ -1,0 +1,82 @@
+<div class="max-w-xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">Create New Link</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">Add a new shortcut for your team</p>
+    </div>
+
+    <form hx-post="/links" hx-target="#form-message" hx-swap="innerHTML" class="glass-card rounded-2xl p-6 space-y-5">
+        <div>
+            <label for="keyword" class="block text-sm font-medium mb-2">Keyword</label>
+            <input
+                type="text"
+                id="keyword"
+                name="keyword"
+                required
+                pattern="[a-zA-Z0-9_-]+"
+                placeholder="my-link"
+                class="w-full px-4 py-3 rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none font-mono transition-all">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Letters, numbers, hyphens, and underscores only</p>
+        </div>
+
+        <div>
+            <label for="url" class="block text-sm font-medium mb-2">URL</label>
+            <input
+                type="url"
+                id="url"
+                name="url"
+                required
+                placeholder="https://example.com"
+                class="w-full px-4 py-3 rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+        </div>
+
+        <div>
+            <label for="description" class="block text-sm font-medium mb-2">Description <span class="text-gray-400 font-normal">(optional)</span></label>
+            <input
+                type="text"
+                id="description"
+                name="description"
+                placeholder="A short description of this link"
+                class="w-full px-4 py-3 rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium mb-3">Link Scope</label>
+            <div class="space-y-2">
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
+                    <input type="radio" name="scope" value="personal" checked class="text-brand-500 focus:ring-brand-500">
+                    <div>
+                        <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Personal</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Only visible to you. Takes priority over organization and global links.</p>
+                    </div>
+                </label>
+                {{if .User.OrganizationID}}
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
+                    <input type="radio" name="scope" value="org" class="text-brand-500 focus:ring-brand-500">
+                    <div>
+                        <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Organization</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsOrgMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to all organization members.</p>
+                    </div>
+                </label>
+                {{end}}
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
+                    <input type="radio" name="scope" value="global" class="text-brand-500 focus:ring-brand-500">
+                    <div>
+                        <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Global</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsGlobalMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to everyone.</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div id="form-message"></div>
+
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40">
+                Create Link
+            </button>
+            <a href="/browse" class="px-6 py-3 rounded-xl glass-card hover:shadow-md transition-all font-medium">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>

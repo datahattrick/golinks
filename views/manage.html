@@ -1,0 +1,58 @@
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">Manage Links</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">View, edit, and monitor the health of links</p>
+    </div>
+
+    <!-- Filter buttons -->
+    <div class="flex gap-2 mb-6 flex-wrap">
+        <button
+            hx-get="/manage?filter=all"
+            hx-target="#manage-links-list"
+            hx-swap="innerHTML"
+            class="px-4 py-2 text-sm rounded-xl transition-all font-medium {{if eq .Filter "all"}}bg-gradient-to-r from-brand-500 to-teal-500 text-white shadow-lg shadow-brand-500/25{{else}}glass-card hover:shadow-md{{end}}">
+            All
+        </button>
+        <button
+            hx-get="/manage?filter=healthy"
+            hx-target="#manage-links-list"
+            hx-swap="innerHTML"
+            class="px-4 py-2 text-sm rounded-xl transition-all font-medium {{if eq .Filter "healthy"}}bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25{{else}}glass-card hover:shadow-md{{end}}">
+            <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                Healthy
+            </span>
+        </button>
+        <button
+            hx-get="/manage?filter=unhealthy"
+            hx-target="#manage-links-list"
+            hx-swap="innerHTML"
+            class="px-4 py-2 text-sm rounded-xl transition-all font-medium {{if eq .Filter "unhealthy"}}bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-lg shadow-red-500/25{{else}}glass-card hover:shadow-md{{end}}">
+            <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                Unhealthy
+            </span>
+        </button>
+        <button
+            hx-get="/manage?filter=unknown"
+            hx-target="#manage-links-list"
+            hx-swap="innerHTML"
+            class="px-4 py-2 text-sm rounded-xl transition-all font-medium {{if eq .Filter "unknown"}}bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg shadow-gray-500/25{{else}}glass-card hover:shadow-md{{end}}">
+            <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                Unknown
+            </span>
+        </button>
+    </div>
+
+    <!-- Links list container -->
+    <div id="manage-links-list">
+        {{template "partials/manage_links_list" .}}
+    </div>
+</div>

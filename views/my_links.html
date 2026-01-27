@@ -1,0 +1,39 @@
+<div class="mb-6">
+    <h1 class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">My Links</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Personal shortcuts that take priority over organization links</p>
+</div>
+
+<div class="glass-card rounded-2xl p-5 mb-6">
+    <h2 class="text-sm font-semibold mb-4 flex items-center gap-2">
+        <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add Personal Link
+    </h2>
+    <form hx-post="/my-links" hx-target="#user-links-list" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="flex gap-3 flex-wrap">
+        <input
+            type="text"
+            name="keyword"
+            required
+            placeholder="keyword"
+            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-32 font-mono transition-all">
+        <input
+            type="url"
+            name="url"
+            required
+            placeholder="https://..."
+            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none flex-1 min-w-[200px] transition-all">
+        <input
+            type="text"
+            name="description"
+            placeholder="description"
+            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-40 transition-all">
+        <button type="submit" class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all shadow-md shadow-brand-500/25">
+            Add Link
+        </button>
+    </form>
+</div>
+
+<div id="user-links-list" class="space-y-3">
+    {{template "partials/user_links_list" .}}
+</div>
