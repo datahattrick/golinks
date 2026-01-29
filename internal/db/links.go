@@ -561,6 +561,38 @@ func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID
 	return scanLinks(rows)
 }
 
+// GetTopApprovedLinks retrieves the most clicked approved links (global + org if provided, no personal).
+func (d *DB) GetTopApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	var sql string
+	var args []any
+
+	if orgID != nil {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
+			ORDER BY click_count DESC, keyword ASC
+			LIMIT $5
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
+	} else {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND scope = $2
+			ORDER BY click_count DESC, keyword ASC
+			LIMIT $3
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
 // GetNewestApprovedLinks retrieves the newest approved links (global + org if provided).
 func (d *DB) GetNewestApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
 	var sql string
