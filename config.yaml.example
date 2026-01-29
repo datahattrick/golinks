@@ -1,0 +1,123 @@
+# GoLinks Configuration File
+# This file defines organizations, groups, and their hierarchy.
+# Simple settings (server, database, OIDC) remain as environment variables.
+#
+# Mount this file to /app/config.yaml or set CONFIG_FILE env var to specify path.
+# For Kubernetes, mount as a ConfigMap:
+#   kubectl create configmap golinks-config --from-file=config.yaml
+#   Then mount at /app/config.yaml in your deployment.
+
+# Organizations define separate tenants/companies.
+# Users are assigned to an organization based on OIDC claims or admin assignment.
+organizations:
+  - slug: acme
+    name: Acme Corporation
+    # Optional: domain matching for auto-assignment from OIDC email
+    domains:
+      - acme.com
+      - acme.co.nz
+
+  - slug: widgets
+    name: Widgets Inc
+    domains:
+      - widgets.io
+
+# Groups define the link resolution hierarchy.
+# Tier determines priority: higher tier = higher priority (1-99).
+# Global links (tier 0) and personal links (tier 100) are implicit.
+#
+# Resolution order (highest to lowest):
+#   100 - Personal links (user_links table, always highest)
+#   99  - Team-level groups
+#   50  - Department-level groups
+#   25  - Organization-wide groups
+#   0   - Global links (links table with scope='global', lowest)
+#
+# Within the same tier, the user's primary group takes precedence.
+
+groups:
+  # Organization-wide groups (tier 25)
+  - slug: acme-all
+    name: Acme - All Employees
+    tier: 25
+    organization: acme
+
+  - slug: widgets-all
+    name: Widgets - All Staff
+    tier: 25
+    organization: widgets
+
+  # Department-level groups (tier 50)
+  - slug: acme-engineering
+    name: Acme - Engineering
+    tier: 50
+    organization: acme
+    parent: acme-all
+
+  - slug: acme-marketing
+    name: Acme - Marketing
+    tier: 50
+    organization: acme
+    parent: acme-all
+
+  - slug: acme-sales
+    name: Acme - Sales
+    tier: 50
+    organization: acme
+    parent: acme-all
+
+  - slug: widgets-dev
+    name: Widgets - Development
+    tier: 50
+    organization: widgets
+    parent: widgets-all
+
+  # Team-level groups (tier 75)
+  - slug: acme-eng-platform
+    name: Acme - Platform Team
+    tier: 75
+    organization: acme
+    parent: acme-engineering
+
+  - slug: acme-eng-frontend
+    name: Acme - Frontend Team
+    tier: 75
+    organization: acme
+    parent: acme-engineering
+
+  - slug: acme-eng-backend
+    name: Acme - Backend Team
+    tier: 75
+    organization: acme
+    parent: acme-engineering
+
+# Default group assignments based on OIDC claims.
+# When a user logs in, they can be auto-assigned to groups based on claims.
+# Supports 'groups', 'roles', or custom claim names from your OIDC provider.
+auto_assignment:
+  # Claim name to use for group assignment (e.g., 'groups', 'roles', 'department')
+  claim: groups
+
+  # Mapping from claim values to group slugs
+  mappings:
+    # OIDC claim value -> group slugs (user gets added to all matching groups)
+    "engineering": [acme-engineering]
+    "platform-team": [acme-eng-platform]
+    "frontend-team": [acme-eng-frontend]
+    "backend-team": [acme-eng-backend]
+    "marketing": [acme-marketing]
+    "sales": [acme-sales]
+
+    # A user can match multiple mappings
+    "tech-lead": [acme-engineering, acme-eng-platform]
+
+# Default role settings
+defaults:
+  # Default role when adding users to groups
+  group_role: member
+
+  # Whether new users are active by default
+  user_active: true
+
+  # Whether to create organizations/groups on first reference
+  auto_create: false
