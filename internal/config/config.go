@@ -45,10 +45,24 @@ type Config struct {
 	SiteTagline string // env: SITE_TAGLINE, default: "Fast URL shortcuts for your team"
 	SiteFooter  string // env: SITE_FOOTER, default: "GoLinks - Fast URL shortcuts for your team"
 	SiteLogoURL string // env: SITE_LOGO_URL, default: "" (no logo, text only)
+
+	// YAML Configuration (organizations, groups, hierarchy)
+	// Loaded from CONFIG_FILE env var, defaults to "config.yaml"
+	YAML *YAMLConfig
 }
 
 // Load reads configuration from environment variables with sensible defaults.
+// Also loads YAML configuration for organizations/groups if CONFIG_FILE is set
+// or config.yaml exists.
 func Load() *Config {
+	// Load YAML config (optional)
+	yamlCfg, err := LoadYAMLConfig()
+	if err != nil {
+		// Log warning but continue - YAML config is optional
+		// In production, this would use proper logging
+		println("Warning: failed to load YAML config:", err.Error())
+	}
+
 	return &Config{
 		Env:              getEnv("ENV", "development"),
 		ServerAddr:       getEnv("SERVER_ADDR", ":3000"),
@@ -71,6 +85,8 @@ func Load() *Config {
 		SiteTagline: getEnv("SITE_TAGLINE", "Fast URL shortcuts for your team"),
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
+
+		YAML: yamlCfg,
 	}
 }
 

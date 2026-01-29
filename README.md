@@ -38,26 +38,6 @@ make db-shell     # Connect to PostgreSQL
 make oidc-logs    # View OIDC server logs
 ```
 
-## Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# Database (matches docker-compose defaults)
-DATABASE_URL=postgres://golinks:golinks@localhost:5432/golinks?sslmode=disable
-
-# OIDC - Local mock server (default for make dev)
-OIDC_ISSUER=http://localhost:8080/golinks
-OIDC_CLIENT_ID=golinks-app
-OIDC_CLIENT_SECRET=secret
-OIDC_REDIRECT_URL=http://localhost:3000/auth/callback
-
-# OIDC - Production (e.g., Google)
-# OIDC_ISSUER=https://accounts.google.com
-# OIDC_CLIENT_ID=your-client-id
-# OIDC_CLIENT_SECRET=your-client-secret
-```
-
 ## Usage
 
 ### Redirects
@@ -82,6 +62,135 @@ make services-up    # PostgreSQL + OIDC only
 make docker-up      # Full stack in containers
 make docker-down    # Stop and clean up
 ```
+
+### Container Images
+
+Container images are automatically built and published to GitHub Container Registry on push to `main` and tags.
+
+```bash
+# Pull latest image
+docker pull ghcr.io/OWNER/golinks:main
+
+# Pull specific version
+docker pull ghcr.io/OWNER/golinks:v1.0.0
+```
+
+## Kubernetes Deployment
+
+### Basic Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golinks
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: golinks
+  template:
+    metadata:
+      labels:
+        app: golinks
+    spec:
+      containers:
+        - name: golinks
+          image: ghcr.io/OWNER/golinks:main
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: golinks-secrets
+                  key: database-url
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: golinks-secrets
+                  key: session-secret
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: golinks-config
+```
+
+### Configuration via ConfigMap
+
+For complex organization and group hierarchies, use a YAML configuration file:
+
+```bash
+# Create ConfigMap from config file
+kubectl create configmap golinks-config --from-file=config.yaml
+```
+
+See `config.yaml.example` for the full configuration schema.
+
+## Advanced Configuration
+
+### Environment Variables
+
+Simple settings are configured via environment variables. Copy `.env.example` to `.env`:
+
+```bash
+# Database
+DATABASE_URL=postgres://golinks:golinks@localhost:5432/golinks?sslmode=disable
+
+# OIDC Authentication
+OIDC_ISSUER=https://accounts.google.com
+OIDC_CLIENT_ID=your-client-id
+OIDC_CLIENT_SECRET=your-client-secret
+OIDC_REDIRECT_URL=https://go.example.com/auth/callback
+
+# Site Branding
+SITE_TITLE=MyCompany Links
+SITE_TAGLINE=Internal URL shortcuts
+SITE_LOGO_URL=https://example.com/logo.png
+```
+
+### YAML Configuration
+
+Complex hierarchical configuration (organizations, groups, tiers) is defined in a YAML file.
+Set `CONFIG_FILE` env var or mount to `/app/config.yaml`:
+
+```yaml
+# Organizations
+organizations:
+  - slug: acme
+    name: Acme Corporation
+    domains: [acme.com]
+
+# Groups with tier-based priority (1-99)
+groups:
+  - slug: acme-all
+    name: All Employees
+    tier: 25
+    organization: acme
+
+  - slug: acme-engineering
+    name: Engineering
+    tier: 50
+    organization: acme
+    parent: acme-all
+
+# Auto-assign users to groups based on OIDC claims
+auto_assignment:
+  claim: groups
+  mappings:
+    "engineering": [acme-engineering]
+```
+
+Link resolution priority (highest to lowest):
+1. **Personal links** (tier 100) - User's own shortcuts
+2. **Team groups** (tier 75-99) - Team-specific links
+3. **Department groups** (tier 50-74) - Department links
+4. **Organization groups** (tier 25-49) - Company-wide links
+5. **Global links** (tier 0) - Available to everyone
 
 ## Tech Stack
 
