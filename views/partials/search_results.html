@@ -1,7 +1,7 @@
 {{range .Links}}
 <tr id="link-{{.ID}}" class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
     <td class="py-3 pr-4">
-        <a href="/go/{{.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">go/{{.Keyword}}</a>
+        <a href="/go/{{.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{{.Keyword}}</a>
         {{if .Description}}<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{.Description}}</p>{{end}}
     </td>
     <td class="py-3 pr-4 max-w-xs truncate">

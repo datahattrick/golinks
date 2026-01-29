@@ -1,4 +1,5 @@
-.PHONY: run build test clean dev db-up db-down db-logs docker-up docker-down services-up services-down
+.PHONY: run build test clean dev db-up db-down db-logs docker-up docker-down services-up services-down \
+	test-unit test-integration test-all test-cover test-verbose test-db-setup test-db-teardown
 
 # Application
 APP_NAME := golinks
@@ -6,6 +7,7 @@ MAIN_PATH := ./cmd/server
 
 # Database (matches docker-compose)
 DATABASE_URL ?= postgres://golinks:golinks@localhost:5432/golinks?sslmode=disable
+TEST_DATABASE_URL ?= postgres://golinks:golinks@localhost:5432/golinks_test?sslmode=disable
 
 # OIDC (matches docker-compose mock server)
 OIDC_ISSUER ?= http://localhost:8080/golinks
@@ -24,14 +26,93 @@ run:
 build:
 	go build -o $(APP_NAME) $(MAIN_PATH)
 
-# Run tests
-test:
-	go test -v ./...
+# ============================================================================
+# Testing Targets
+# ============================================================================
 
-# Run tests with coverage
-test-cover:
-	go test -coverprofile=coverage.out ./...
+# Run all unit tests (no database required)
+test-unit:
+	@echo "Running unit tests..."
+	go test -v ./internal/models/... ./internal/middleware/... ./internal/handlers/...
+
+# Run integration tests (requires test database)
+test-integration: test-db-setup
+	@echo "Running integration tests..."
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v ./internal/db/...
+
+# Run all tests (unit + integration)
+test-all: test-db-setup
+	@echo "Running all tests..."
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v ./...
+
+# Run tests (alias for test-unit, no DB required)
+test: test-unit
+
+# Run tests with verbose output
+test-verbose:
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v -count=1 ./...
+
+# Run tests with coverage report
+test-cover: test-db-setup
+	@echo "Running tests with coverage..."
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+# Run tests with coverage and show summary
+test-cover-summary: test-db-setup
+	@echo "Running tests with coverage..."
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+
+# Run tests for a specific package
+test-pkg:
+	@if [ -z "$(PKG)" ]; then echo "Usage: make test-pkg PKG=./internal/db"; exit 1; fi
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v $(PKG)
+
+# Setup test database
+test-db-setup: db-up
+	@echo "Setting up test database..."
+	@sleep 2
+	@docker compose exec -T postgres psql -U golinks -c "CREATE DATABASE golinks_test;" 2>/dev/null || true
+
+# Teardown test database
+test-db-teardown:
+	@echo "Tearing down test database..."
+	@docker compose exec -T postgres psql -U golinks -c "DROP DATABASE IF EXISTS golinks_test;"
+
+# Run tests in CI mode (assumes database is already running)
+test-ci:
+	@echo "Running CI tests..."
+	RUN_INTEGRATION_TESTS=1 TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v -race -coverprofile=coverage.out ./...
+
+# ============================================================================
+# Test Feature Categories
+# ============================================================================
+
+# Test models (roles, permissions)
+test-models:
+	@echo "Testing models..."
+	go test -v ./internal/models/...
+
+# Test database operations
+test-db: test-db-setup
+	@echo "Testing database operations..."
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -v ./internal/db/...
+
+# Test handlers (moderation, links)
+test-handlers:
+	@echo "Testing handlers..."
+	go test -v ./internal/handlers/...
+
+# Test middleware (auth, PKI extraction)
+test-middleware:
+	@echo "Testing middleware..."
+	go test -v ./internal/middleware/...
+
+# ============================================================================
+# Development Targets
+# ============================================================================
 
 # Clean build artifacts
 clean:
@@ -40,6 +121,29 @@ clean:
 # Tidy dependencies
 tidy:
 	go mod tidy
+
+# Lint code
+lint:
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not installed, skipping..."; \
+	fi
+
+# Format code
+fmt:
+	go fmt ./...
+
+# Vet code
+vet:
+	go vet ./...
+
+# Run all checks (fmt, vet, lint, test)
+check: fmt vet lint test-unit
+
+# ============================================================================
+# Docker/Database Targets
+# ============================================================================
 
 # Start PostgreSQL only
 db-up:
@@ -81,6 +185,7 @@ dev: services-up
 	OIDC_CLIENT_ID="$(OIDC_CLIENT_ID)" \
 	OIDC_CLIENT_SECRET="$(OIDC_CLIENT_SECRET)" \
 	OIDC_REDIRECT_URL="$(OIDC_REDIRECT_URL)" \
+	ENABLE_RANDOM_KEYWORDS="true" \
 	go run $(MAIN_PATH)
 
 # Development without OIDC
@@ -93,6 +198,51 @@ dev-no-auth: db-up
 db-shell:
 	docker compose exec postgres psql -U golinks -d golinks
 
+# Connect to test PostgreSQL
+db-shell-test:
+	docker compose exec postgres psql -U golinks -d golinks_test
+
 # View OIDC server logs
 oidc-logs:
 	docker compose logs -f oidc
+
+# ============================================================================
+# Help
+# ============================================================================
+
+help:
+	@echo "GoLinks Makefile"
+	@echo ""
+	@echo "Build & Run:"
+	@echo "  make build          - Build the application binary"
+	@echo "  make run            - Run the application"
+	@echo "  make dev            - Start services and run app with OIDC"
+	@echo "  make clean          - Remove build artifacts"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test           - Run unit tests (no DB required)"
+	@echo "  make test-unit      - Run unit tests only"
+	@echo "  make test-integration - Run integration tests (requires DB)"
+	@echo "  make test-all       - Run all tests"
+	@echo "  make test-cover     - Run tests with coverage report"
+	@echo "  make test-verbose   - Run tests with verbose output"
+	@echo "  make test-pkg PKG=./internal/db - Test specific package"
+	@echo ""
+	@echo "Test Categories:"
+	@echo "  make test-models    - Test model logic (roles, permissions)"
+	@echo "  make test-db        - Test database operations"
+	@echo "  make test-handlers  - Test HTTP handlers"
+	@echo "  make test-middleware - Test middleware (auth, PKI)"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  make fmt            - Format code"
+	@echo "  make vet            - Run go vet"
+	@echo "  make lint           - Run linter"
+	@echo "  make check          - Run all checks"
+	@echo ""
+	@echo "Database:"
+	@echo "  make db-up          - Start PostgreSQL"
+	@echo "  make db-down        - Stop PostgreSQL"
+	@echo "  make db-shell       - Connect to PostgreSQL"
+	@echo "  make db-shell-test  - Connect to test database"
+	@echo "  make test-db-setup  - Create test database"

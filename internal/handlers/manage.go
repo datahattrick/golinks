@@ -6,18 +6,20 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
+	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
 )
 
 // ManageHandler handles link management operations for moderators.
 type ManageHandler struct {
-	db *db.DB
+	db  *db.DB
+	cfg *config.Config
 }
 
 // NewManageHandler creates a new manage handler.
-func NewManageHandler(database *db.DB) *ManageHandler {
-	return &ManageHandler{db: database}
+func NewManageHandler(database *db.DB, cfg *config.Config) *ManageHandler {
+	return &ManageHandler{db: database, cfg: cfg}
 }
 
 // Index renders the management page.
@@ -47,11 +49,11 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 		}, "")
 	}
 
-	return c.Render("manage", fiber.Map{
+	return c.Render("manage", MergeBranding(fiber.Map{
 		"User":   user,
 		"Links":  links,
 		"Filter": filter,
-	})
+	}, h.cfg))
 }
 
 // Edit renders the inline edit form for a link.

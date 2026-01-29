@@ -86,8 +86,8 @@ func (h *HealthChecker) checkAll(ctx context.Context) {
 			continue
 		}
 
-		// Small delay between checks to avoid overwhelming external servers
-		time.Sleep(100 * time.Millisecond)
+		// Delay between checks to avoid overwhelming external servers
+		time.Sleep(1 * time.Second)
 	}
 }
 

@@ -1,49 +1,124 @@
 package middleware
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
+	"golinks/internal/config"
 	"golinks/internal/db"
+	"golinks/internal/models"
 )
 
-// AuthMiddleware handles user authentication via sessions.
+// AuthMiddleware handles user authentication via sessions and PKI.
 type AuthMiddleware struct {
-	store *session.Store
-	db    *db.DB
+	db               *db.DB
+	clientCertHeader string
 }
 
 // NewAuthMiddleware creates a new auth middleware instance.
-func NewAuthMiddleware(store *session.Store, db *db.DB) *AuthMiddleware {
-	return &AuthMiddleware{store: store, db: db}
+func NewAuthMiddleware(db *db.DB, cfg *config.Config) *AuthMiddleware {
+	return &AuthMiddleware{
+		db:               db,
+		clientCertHeader: cfg.ClientCertHeader,
+	}
 }
 
-// RequireAuth ensures the user is authenticated, redirecting to /login if not.
+// RequireAuth ensures the user is authenticated via session or PKI cert.
+// Priority: 1) PKI cert (mTLS or header), 2) Session (OIDC)
 func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
-	sess, err := m.store.Get(c)
-	if err != nil {
-		return c.Redirect().To("/login")
+	// Try PKI authentication first (mTLS or header)
+	if user, err := m.authenticateViaPKI(c); err == nil && user != nil {
+		m.loadGroupMemberships(c, user)
+		c.Locals("user", user)
+		return c.Next()
+	}
+
+	// Fall back to session-based auth (OIDC)
+	sess := session.FromContext(c)
+	if sess == nil {
+		return c.Redirect().To("/auth/login")
 	}
 
 	userSub := sess.Get("user_sub")
 	if userSub == nil {
-		return c.Redirect().To("/login")
+		return c.Redirect().To("/auth/login")
 	}
 
 	user, err := m.db.GetUserBySub(c.Context(), userSub.(string))
 	if err != nil {
 		sess.Destroy()
-		return c.Redirect().To("/login")
+		return c.Redirect().To("/auth/login")
 	}
 
+	m.loadGroupMemberships(c, user)
 	c.Locals("user", user)
 	return c.Next()
 }
 
+// authenticateViaPKI extracts username from client cert (mTLS or header) and looks up user.
+func (m *AuthMiddleware) authenticateViaPKI(c fiber.Ctx) (*models.User, error) {
+	username := m.extractUsernameFromCert(c)
+	if username == "" {
+		return nil, nil
+	}
+
+	return m.db.GetUserByUsername(c.Context(), username)
+}
+
+// extractUsernameFromCert extracts the username from client certificate CN.
+// Supports both mTLS (direct cert) and header-based (ingress-terminated TLS).
+// CN format: "Full Name (username)" -> extracts "username"
+func (m *AuthMiddleware) extractUsernameFromCert(c fiber.Ctx) string {
+	var cn string
+
+	// Try header first (for ingress-terminated TLS)
+	if m.clientCertHeader != "" {
+		cn = c.Get(m.clientCertHeader)
+	}
+
+	// Try mTLS client cert if no header
+	if cn == "" {
+		// Access the underlying fasthttp request context for TLS state
+		tlsState := c.RequestCtx().TLSConnectionState()
+		if tlsState != nil && len(tlsState.PeerCertificates) > 0 {
+			cn = tlsState.PeerCertificates[0].Subject.CommonName
+		}
+	}
+
+	if cn == "" {
+		return ""
+	}
+
+	return extractUsernameFromCN(cn)
+}
+
+// extractUsernameFromCN parses username from CN format "Full Name (username)".
+// Returns the username in parentheses, or empty string if not found.
+func extractUsernameFromCN(cn string) string {
+	// Match content within parentheses at the end: "Heath Taylor (heatht)" -> "heatht"
+	re := regexp.MustCompile(`\(([^)]+)\)\s*$`)
+	matches := re.FindStringSubmatch(cn)
+	if len(matches) >= 2 {
+		return strings.TrimSpace(matches[1])
+	}
+	return ""
+}
+
 // OptionalAuth loads the user if authenticated, but doesn't require authentication.
 func (m *AuthMiddleware) OptionalAuth(c fiber.Ctx) error {
-	sess, err := m.store.Get(c)
-	if err != nil {
+	// Try PKI authentication first
+	if user, err := m.authenticateViaPKI(c); err == nil && user != nil {
+		m.loadGroupMemberships(c, user)
+		c.Locals("user", user)
+		return c.Next()
+	}
+
+	// Try session-based auth
+	sess := session.FromContext(c)
+	if sess == nil {
 		return c.Next()
 	}
 
@@ -54,8 +129,17 @@ func (m *AuthMiddleware) OptionalAuth(c fiber.Ctx) error {
 
 	user, err := m.db.GetUserBySub(c.Context(), userSub.(string))
 	if err == nil {
+		m.loadGroupMemberships(c, user)
 		c.Locals("user", user)
 	}
 
 	return c.Next()
+}
+
+// loadGroupMemberships loads the user's group memberships for tier-based resolution.
+func (m *AuthMiddleware) loadGroupMemberships(c fiber.Ctx, user *models.User) {
+	memberships, err := m.db.GetUserMemberships(c.Context(), user.ID)
+	if err == nil {
+		user.GroupMemberships = memberships
+	}
 }
