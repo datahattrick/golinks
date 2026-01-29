@@ -73,8 +73,12 @@ func main() {
 			}
 
 			return c.Status(code).Render("error", fiber.Map{
-				"Title":   "Error",
-				"Message": message,
+				"Title":       "Error",
+				"Message":     message,
+				"SiteTitle":   cfg.SiteTitle,
+				"SiteTagline": cfg.SiteTagline,
+				"SiteFooter":  cfg.SiteFooter,
+				"SiteLogoURL": cfg.SiteLogoURL,
 			})
 		},
 	})
@@ -114,12 +118,12 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(database, cfg)
 
 	// Initialize handlers
-	linkHandler := handlers.NewLinkHandler(database)
-	redirectHandler := handlers.NewRedirectHandler(database)
-	profileHandler := handlers.NewProfileHandler(database)
-	userLinkHandler := handlers.NewUserLinkHandler(database)
-	moderationHandler := handlers.NewModerationHandler(database)
-	manageHandler := handlers.NewManageHandler(database)
+	linkHandler := handlers.NewLinkHandler(database, cfg)
+	redirectHandler := handlers.NewRedirectHandler(database, cfg)
+	profileHandler := handlers.NewProfileHandler(database, cfg)
+	userLinkHandler := handlers.NewUserLinkHandler(database, cfg)
+	moderationHandler := handlers.NewModerationHandler(database, cfg)
+	manageHandler := handlers.NewManageHandler(database, cfg)
 	healthHandler := handlers.NewHealthHandler(database)
 
 	// Start background health checker
@@ -168,6 +172,9 @@ func main() {
 	app.Get("/manage/:id/edit", authMiddleware.RequireAuth, manageHandler.Edit)
 	app.Put("/manage/:id", authMiddleware.RequireAuth, manageHandler.Update)
 	app.Post("/health/:id", authMiddleware.RequireAuth, healthHandler.CheckLink)
+
+	// Random link route ("I'm Feeling Lucky")
+	app.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
 
 	// Redirect routes - also require auth (catch-all for keywords)
 	app.Get("/go/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)

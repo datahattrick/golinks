@@ -508,6 +508,135 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 	return scanLinks(rows)
 }
 
+// GetTopUsedLinksForUser retrieves the most used keywords for a user (personal + org + global).
+func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	// Union personal (user_links), org, and global links, ordered by click count
+	var sql string
+	var args []any
+
+	if orgID != nil {
+		sql = `
+			WITH combined AS (
+				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
+					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
+					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
+					click_count, created_at, updated_at,
+					health_status, health_checked_at, health_error
+				FROM user_links WHERE user_id = $1
+				UNION ALL
+				SELECT ` + linkColumns + `
+				FROM links
+				WHERE status = $2 AND scope = $3 AND organization_id = $4
+				UNION ALL
+				SELECT ` + linkColumns + `
+				FROM links
+				WHERE status = $2 AND scope = $5
+			)
+			SELECT * FROM combined ORDER BY click_count DESC LIMIT $6
+		`
+		args = []any{userID, models.StatusApproved, models.ScopeOrg, *orgID, models.ScopeGlobal, limit}
+	} else {
+		sql = `
+			WITH combined AS (
+				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
+					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
+					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
+					click_count, created_at, updated_at,
+					health_status, health_checked_at, health_error
+				FROM user_links WHERE user_id = $1
+				UNION ALL
+				SELECT ` + linkColumns + `
+				FROM links
+				WHERE status = $2 AND scope = $3
+			)
+			SELECT * FROM combined ORDER BY click_count DESC LIMIT $4
+		`
+		args = []any{userID, models.StatusApproved, models.ScopeGlobal, limit}
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
+// GetNewestApprovedLinks retrieves the newest approved links (global + org if provided).
+func (d *DB) GetNewestApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	var sql string
+	var args []any
+
+	if orgID != nil {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
+			ORDER BY created_at DESC
+			LIMIT $5
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
+	} else {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND scope = $2
+			ORDER BY created_at DESC
+			LIMIT $3
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
+// GetRandomApprovedLinks retrieves random approved links (global + org if provided).
+func (d *DB) GetRandomApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	var sql string
+	var args []any
+
+	if orgID != nil {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
+			ORDER BY RANDOM()
+			LIMIT $5
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
+	} else {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND scope = $2
+			ORDER BY RANDOM()
+			LIMIT $3
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
+// GetRandomApprovedLink retrieves a single random approved link.
+func (d *DB) GetRandomApprovedLink(ctx context.Context, orgID *uuid.UUID) (*models.Link, error) {
+	links, err := d.GetRandomApprovedLinks(ctx, orgID, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(links) == 0 {
+		return nil, ErrLinkNotFound
+	}
+	return &links[0], nil
+}
+
 // GetLinksNeedingHealthCheck retrieves links that need a health check.
 func (d *DB) GetLinksNeedingHealthCheck(ctx context.Context, maxAge time.Duration, limit int) ([]models.Link, error) {
 	cutoff := time.Now().Add(-maxAge)

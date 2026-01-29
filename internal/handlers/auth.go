@@ -20,12 +20,11 @@ type AuthHandler struct {
 	provider     *oidc.Provider
 	oauth2Config oauth2.Config
 	verifier     *oidc.IDTokenVerifier
-	store        *session.Store
 	db           *db.DB
 }
 
 // NewAuthHandler creates a new auth handler with OIDC configuration.
-func NewAuthHandler(ctx context.Context, cfg *config.Config, store *session.Store, database *db.DB) (*AuthHandler, error) {
+func NewAuthHandler(ctx context.Context, cfg *config.Config, database *db.DB) (*AuthHandler, error) {
 	provider, err := oidc.NewProvider(ctx, cfg.OIDCIssuer)
 	if err != nil {
 		return nil, err
@@ -45,7 +44,6 @@ func NewAuthHandler(ctx context.Context, cfg *config.Config, store *session.Stor
 		provider:     provider,
 		oauth2Config: oauth2Config,
 		verifier:     verifier,
-		store:        store,
 		db:           database,
 	}, nil
 }
@@ -54,14 +52,11 @@ func NewAuthHandler(ctx context.Context, cfg *config.Config, store *session.Stor
 func (h *AuthHandler) Login(c fiber.Ctx) error {
 	state := generateState()
 
-	sess, err := h.store.Get(c)
-	if err != nil {
-		return err
+	sess := session.FromContext(c)
+	if sess == nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "session not available")
 	}
 	sess.Set("oauth_state", state)
-	if err := sess.Save(); err != nil {
-		return err
-	}
 
 	url := h.oauth2Config.AuthCodeURL(state)
 	return c.Redirect().To(url)
@@ -69,9 +64,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 
 // Callback handles the OIDC callback after authentication.
 func (h *AuthHandler) Callback(c fiber.Ctx) error {
-	sess, err := h.store.Get(c)
-	if err != nil {
-		return err
+	sess := session.FromContext(c)
+	if sess == nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "session not available")
 	}
 
 	// Verify state
@@ -122,21 +117,16 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 
 	// Store session
 	sess.Set("user_sub", claims.Sub)
-	if err := sess.Save(); err != nil {
-		return err
-	}
 
 	return c.Redirect().To("/")
 }
 
 // Logout clears the user session.
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
-	sess, err := h.store.Get(c)
-	if err != nil {
-		return c.Redirect().To("/")
+	sess := session.FromContext(c)
+	if sess != nil {
+		sess.Destroy()
 	}
-
-	sess.Destroy()
 	return c.Redirect().To("/")
 }
 

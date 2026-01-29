@@ -54,3 +54,32 @@ func (d *DB) RunMigrations(connString string) error {
 func (d *DB) Close() {
 	d.Pool.Close()
 }
+
+// SeedDevLinks inserts test links for development. Skips links that already exist.
+func (d *DB) SeedDevLinks(ctx context.Context) error {
+	links := []struct {
+		keyword     string
+		url         string
+		description string
+	}{
+		{"google", "https://www.google.com", "Google Search"},
+		{"example", "https://example.org", "Example Domain"},
+		{"github", "https://github.com", "GitHub"},
+		{"go", "https://go.dev", "Go Programming Language"},
+		{"docs", "https://pkg.go.dev", "Go Package Documentation"},
+	}
+
+	query := `
+		INSERT INTO links (keyword, url, description, scope, status)
+		VALUES ($1, $2, $3, 'global', 'approved')
+		ON CONFLICT (keyword) DO NOTHING
+	`
+
+	for _, link := range links {
+		if _, err := d.Pool.Exec(ctx, query, link.keyword, link.url, link.description); err != nil {
+			return fmt.Errorf("failed to seed link %s: %w", link.keyword, err)
+		}
+	}
+
+	return nil
+}
