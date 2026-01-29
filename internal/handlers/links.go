@@ -37,12 +37,10 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 		orgID = user.OrganizationID
 	}
 
-	// Top used links for this user
-	if user != nil {
-		topUsed, err := h.db.GetTopUsedLinksForUser(c.Context(), user.ID, orgID, 5)
-		if err == nil {
-			data["TopUsedLinks"] = topUsed
-		}
+	// Top used links (global/org only, no personal)
+	topUsed, err := h.db.GetTopApprovedLinks(c.Context(), orgID, 5)
+	if err == nil {
+		data["TopUsedLinks"] = topUsed
 	}
 
 	// Newest links
