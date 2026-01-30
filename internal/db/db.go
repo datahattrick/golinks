@@ -72,7 +72,7 @@ func (d *DB) SeedDevLinks(ctx context.Context) error {
 	query := `
 		INSERT INTO links (keyword, url, description, scope, status)
 		VALUES ($1, $2, $3, 'global', 'approved')
-		ON CONFLICT (keyword) DO NOTHING
+		ON CONFLICT (keyword) WHERE scope = 'global' DO NOTHING
 	`
 
 	for _, link := range links {

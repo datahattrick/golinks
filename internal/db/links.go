@@ -278,6 +278,21 @@ func (d *DB) GetPendingOrgLinks(ctx context.Context, orgID uuid.UUID) ([]models.
 	return scanLinks(rows)
 }
 
+// GetAllPendingOrgLinks retrieves all pending org links across all organizations.
+func (d *DB) GetAllPendingOrgLinks(ctx context.Context) ([]models.Link, error) {
+	query := `
+		SELECT ` + linkColumns + `
+		FROM links
+		WHERE scope = $1 AND status = $2
+		ORDER BY created_at ASC
+	`
+	rows, err := d.Pool.Query(ctx, query, models.ScopeOrg, models.StatusPending)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
 // GetApprovedGlobalLinks retrieves all approved global links.
 func (d *DB) GetApprovedGlobalLinks(ctx context.Context) ([]models.Link, error) {
 	query := `
@@ -382,6 +397,22 @@ func (d *DB) GetLinksByUser(ctx context.Context, userID uuid.UUID) ([]models.Lin
 	`
 
 	rows, err := d.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
+// GetPendingLinksByUser retrieves all pending links submitted by a user.
+func (d *DB) GetPendingLinksByUser(ctx context.Context, userID uuid.UUID) ([]models.Link, error) {
+	query := `
+		SELECT ` + linkColumns + `
+		FROM links
+		WHERE submitted_by = $1 AND status = $2
+		ORDER BY created_at DESC
+	`
+
+	rows, err := d.Pool.Query(ctx, query, userID, models.StatusPending)
 	if err != nil {
 		return nil, err
 	}

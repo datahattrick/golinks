@@ -187,6 +187,6 @@ func (h *UserHandler) DeleteUser(c fiber.Ctx) error {
 		return err
 	}
 
-	// Return empty response - HTMX will remove the row
-	return c.SendStatus(fiber.StatusOK)
+	// Return empty response - HTMX will remove the row with outerHTML swap
+	return c.SendString("")
 }

@@ -93,11 +93,13 @@ func CreateTestLink(t *testing.T, database *db.DB, keyword, url, scope, status s
 	t.Helper()
 	ctx := context.Background()
 
+	// Delete existing link with same keyword and scope first (for test cleanup)
+	_, _ = database.Pool.Exec(ctx, `DELETE FROM links WHERE keyword = $1 AND scope = $2`, keyword, scope)
+
 	var id string
 	err := database.Pool.QueryRow(ctx, `
 		INSERT INTO links (keyword, url, description, scope, status)
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (keyword) DO UPDATE SET url = EXCLUDED.url
 		RETURNING id
 	`, keyword, url, "Test link", scope, status).Scan(&id)
 	if err != nil {
