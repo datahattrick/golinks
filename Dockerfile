@@ -1,9 +1,10 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
 # Install dependencies
 COPY go.mod go.sum ./
+ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Copy source code
@@ -21,11 +22,6 @@ WORKDIR /app
 COPY --from=builder /app/golinks .
 COPY --from=builder /app/views ./views
 COPY --from=builder /app/static ./static
-
-# Config file mount point (optional)
-# Mount config.yaml to /app/config.yaml or set CONFIG_FILE env var
-# For Kubernetes: mount ConfigMap at /app/config.yaml
-VOLUME ["/app/config.yaml"]
 
 EXPOSE 3000
 
