@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 // Config holds all application configuration loaded from environment variables.
@@ -30,6 +31,7 @@ type Config struct {
 	OIDCClientID     string
 	OIDCClientSecret string
 	OIDCRedirectURL  string
+	OIDCOrgClaim     string // OIDC claim name for organization, e.g. "org", "organization", "tenant"
 
 	// Session
 	SessionSecret string // Used for signing cookies (min 32 chars)
@@ -40,29 +42,18 @@ type Config struct {
 	// Features
 	EnableRandomKeywords bool // Enable random keywords section and "I'm Feeling Lucky" feature
 
+	// Organizations
+	OrgFallbacks map[string]string // Map of org slug to fallback redirect URL, e.g. {"org1": "https://other.com/go/"}
+
 	// Site Branding
 	SiteTitle   string // env: SITE_TITLE, default: "GoLinks"
 	SiteTagline string // env: SITE_TAGLINE, default: "Fast URL shortcuts for your team"
 	SiteFooter  string // env: SITE_FOOTER, default: "GoLinks - Fast URL shortcuts for your team"
 	SiteLogoURL string // env: SITE_LOGO_URL, default: "" (no logo, text only)
-
-	// YAML Configuration (organizations, groups, hierarchy)
-	// Loaded from CONFIG_FILE env var, defaults to "config.yaml"
-	YAML *YAMLConfig
 }
 
 // Load reads configuration from environment variables with sensible defaults.
-// Also loads YAML configuration for organizations/groups if CONFIG_FILE is set
-// or config.yaml exists.
 func Load() *Config {
-	// Load YAML config (optional)
-	yamlCfg, err := LoadYAMLConfig()
-	if err != nil {
-		// Log warning but continue - YAML config is optional
-		// In production, this would use proper logging
-		println("Warning: failed to load YAML config:", err.Error())
-	}
-
 	return &Config{
 		Env:              getEnv("ENV", "development"),
 		ServerAddr:       getEnv("SERVER_ADDR", ":3000"),
@@ -77,16 +68,16 @@ func Load() *Config {
 		OIDCClientID:     getEnv("OIDC_CLIENT_ID", ""),
 		OIDCClientSecret: getEnv("OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  getEnv("OIDC_REDIRECT_URL", "http://localhost:3000/auth/callback"),
+		OIDCOrgClaim:     getEnv("OIDC_ORG_CLAIM", "organisation"), // OIDC claim name for organization
 		SessionSecret:    getEnv("SESSION_SECRET", "change-me-in-production-min-32-chars"),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
+		OrgFallbacks:         parseOrgFallbacks(getEnv("ORG_FALLBACKS", "")),
 
 		SiteTitle:   getEnv("SITE_TITLE", "GoLinks"),
 		SiteTagline: getEnv("SITE_TAGLINE", "Fast URL shortcuts for your team"),
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
-
-		YAML: yamlCfg,
 	}
 }
 
@@ -105,4 +96,29 @@ func (c *Config) IsDev() bool {
 // IsMTLSEnabled returns true if mTLS is configured with a CA file.
 func (c *Config) IsMTLSEnabled() bool {
 	return c.TLSEnabled && c.TLSCAFile != ""
+}
+
+// parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
+func parseOrgFallbacks(val string) map[string]string {
+	result := make(map[string]string)
+	if val == "" {
+		return result
+	}
+
+	pairs := strings.Split(val, ",")
+	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			slug := strings.TrimSpace(parts[0])
+			url := strings.TrimSpace(parts[1])
+			if slug != "" && url != "" {
+				result[slug] = url
+			}
+		}
+	}
+	return result
 }

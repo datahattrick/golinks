@@ -39,6 +39,13 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, keyword)
 	if err != nil {
 		if errors.Is(err, db.ErrLinkNotFound) {
+			// Check for organization fallback URL
+			if user != nil && user.OrganizationID != nil {
+				org, orgErr := h.db.GetOrganizationByID(c.Context(), *user.OrganizationID)
+				if orgErr == nil && org.FallbackRedirectURL != nil && *org.FallbackRedirectURL != "" {
+					return c.Redirect().To(*org.FallbackRedirectURL + keyword)
+				}
+			}
 			return c.Status(fiber.StatusNotFound).Render("error", MergeBranding(fiber.Map{
 				"Title":   "Not Found",
 				"Message": "The link '" + keyword + "' does not exist.",

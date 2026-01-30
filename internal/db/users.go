@@ -150,3 +150,86 @@ func (d *DB) UpdateUserOrganization(ctx context.Context, userID uuid.UUID, orgID
 	_, err := d.Pool.Exec(ctx, query, orgID, userID)
 	return err
 }
+
+// DeleteUser deletes a user by ID.
+func (d *DB) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	query := `DELETE FROM users WHERE id = $1`
+	_, err := d.Pool.Exec(ctx, query, userID)
+	return err
+}
+
+// UserWithOrg represents a user with their organization details.
+type UserWithOrg struct {
+	models.User
+	OrganizationName string
+	OrganizationSlug string
+}
+
+// GetAllUsersWithOrgs retrieves all users with their organization info.
+func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
+	query := `
+		SELECT u.id, u.sub, COALESCE(u.username, ''), u.email, u.name, u.picture,
+			   u.role, u.organization_id, u.created_at, u.updated_at,
+			   COALESCE(o.name, ''), COALESCE(o.slug, '')
+		FROM users u
+		LEFT JOIN organizations o ON u.organization_id = o.id
+		ORDER BY u.name ASC, u.email ASC
+	`
+
+	rows, err := d.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []UserWithOrg
+	for rows.Next() {
+		var u UserWithOrg
+		if err := rows.Scan(
+			&u.ID, &u.Sub, &u.Username, &u.Email, &u.Name, &u.Picture,
+			&u.Role, &u.OrganizationID, &u.CreatedAt, &u.UpdatedAt,
+			&u.OrganizationName, &u.OrganizationSlug,
+		); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	return users, rows.Err()
+}
+
+// GetUserCount returns the total number of users.
+func (d *DB) GetUserCount(ctx context.Context) (int, error) {
+	var count int
+	err := d.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count)
+	return count, err
+}
+
+// GetUserCountByOrg returns user count grouped by organization.
+func (d *DB) GetUserCountByOrg(ctx context.Context) (map[string]int, error) {
+	query := `
+		SELECT COALESCE(o.slug, 'none'), COUNT(u.id)
+		FROM users u
+		LEFT JOIN organizations o ON u.organization_id = o.id
+		GROUP BY o.slug
+		ORDER BY COUNT(u.id) DESC
+	`
+
+	rows, err := d.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var slug string
+		var count int
+		if err := rows.Scan(&slug, &count); err != nil {
+			return nil, err
+		}
+		counts[slug] = count
+	}
+
+	return counts, rows.Err()
+}

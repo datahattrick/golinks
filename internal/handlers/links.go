@@ -22,6 +22,14 @@ func NewLinkHandler(database *db.DB, cfg *config.Config) *LinkHandler {
 	return &LinkHandler{db: database, cfg: cfg}
 }
 
+// htmxError returns an error message as HTML that HTMX will display.
+// Uses 200 status so HTMX processes the swap (HTMX ignores non-2xx by default).
+func htmxError(c fiber.Ctx, message string) error {
+	return c.SendString(
+		`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">` + message + `</div>`,
+	)
+}
+
 // Index renders the home page with search box.
 func (h *LinkHandler) Index(c fiber.Ctx) error {
 	user, _ := c.Locals("user").(*models.User)
@@ -154,9 +162,11 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 	scope := c.FormValue("scope")
 
 	if keyword == "" || url == "" {
-		return c.Status(fiber.StatusBadRequest).SendString(
-			`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">Keyword and URL are required</div>`,
-		)
+		return htmxError(c, "Keyword and URL are required")
+	}
+
+	if keyword == "random" {
+		return htmxError(c, `The keyword "random" is reserved and cannot be used`)
 	}
 
 	// Default to personal scope if not specified
@@ -172,9 +182,7 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 	case "global":
 		return h.createGlobalLink(c, user, keyword, url, description)
 	default:
-		return c.Status(fiber.StatusBadRequest).SendString(
-			`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">Invalid scope</div>`,
-		)
+		return htmxError(c, "Invalid scope")
 	}
 }
 
@@ -189,9 +197,7 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 
 	if err := h.db.CreateUserLink(c.Context(), userLink); err != nil {
 		if errors.Is(err, db.ErrDuplicateKeyword) {
-			return c.Status(fiber.StatusConflict).SendString(
-				`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">You already have a personal link with this keyword</div>`,
-			)
+			return htmxError(c, "You already have a personal link with this keyword")
 		}
 		return err
 	}
@@ -205,9 +211,7 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 // createOrgLink creates an org-scoped link.
 func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
 	if user.OrganizationID == nil {
-		return c.Status(fiber.StatusBadRequest).SendString(
-			`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">You must be a member of an organization to create org links</div>`,
-		)
+		return htmxError(c, "You must be a member of an organization to create org links")
 	}
 
 	link := &models.Link{
@@ -224,9 +228,7 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		link.Status = models.StatusApproved
 		if err := h.db.CreateLink(c.Context(), link); err != nil {
 			if errors.Is(err, db.ErrDuplicateKeyword) {
-				return c.Status(fiber.StatusConflict).SendString(
-					`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">An org link with this keyword already exists</div>`,
-				)
+				return htmxError(c, "An org link with this keyword already exists")
 			}
 			return err
 		}
@@ -240,9 +242,7 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 	link.SubmittedBy = &user.ID
 	if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 		if errors.Is(err, db.ErrDuplicateKeyword) {
-			return c.Status(fiber.StatusConflict).SendString(
-				`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">An org link with this keyword already exists or is pending approval</div>`,
-			)
+			return htmxError(c, "An org link with this keyword already exists or is pending approval")
 		}
 		return err
 	}
@@ -269,9 +269,7 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 		link.Status = models.StatusApproved
 		if err := h.db.CreateLink(c.Context(), link); err != nil {
 			if errors.Is(err, db.ErrDuplicateKeyword) {
-				return c.Status(fiber.StatusConflict).SendString(
-					`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">A global link with this keyword already exists</div>`,
-				)
+				return htmxError(c, "A global link with this keyword already exists")
 			}
 			return err
 		}
@@ -285,9 +283,7 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 	link.SubmittedBy = &user.ID
 	if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 		if errors.Is(err, db.ErrDuplicateKeyword) {
-			return c.Status(fiber.StatusConflict).SendString(
-				`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">A global link with this keyword already exists or is pending approval</div>`,
-			)
+			return htmxError(c, "A global link with this keyword already exists or is pending approval")
 		}
 		return err
 	}
@@ -346,5 +342,64 @@ func (h *LinkHandler) Delete(c fiber.Ctx) error {
 	}
 
 	// Return empty response for HTMX to remove the element
+	return c.SendString("")
+}
+
+// CheckKeyword checks if a keyword already exists for the given scope.
+// Returns HTML for HTMX to display conflict warnings.
+func (h *LinkHandler) CheckKeyword(c fiber.Ctx) error {
+	keyword := c.Query("keyword")
+	scope := c.Query("scope", "personal")
+
+	if keyword == "" {
+		return c.SendString("")
+	}
+
+	// Check for reserved keywords
+	if keyword == "random" {
+		return c.SendString(`<div class="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm mt-1">
+			<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+			</svg>
+			<span>The keyword "random" is reserved and cannot be used</span>
+		</div>`)
+	}
+
+	user, _ := c.Locals("user").(*models.User)
+
+	var exists bool
+	var conflictType string
+
+	switch scope {
+	case "personal":
+		// Check user's personal links
+		if user != nil {
+			_, err := h.db.GetUserLinkByKeyword(c.Context(), user.ID, keyword)
+			exists = err == nil
+			conflictType = "personal"
+		}
+	case "org":
+		// Check org links
+		if user != nil && user.OrganizationID != nil {
+			_, err := h.db.GetApprovedOrgLinkByKeyword(c.Context(), keyword, *user.OrganizationID)
+			exists = err == nil
+			conflictType = "organization"
+		}
+	case "global":
+		// Check global links
+		_, err := h.db.GetApprovedGlobalLinkByKeyword(c.Context(), keyword)
+		exists = err == nil
+		conflictType = "global"
+	}
+
+	if exists {
+		return c.SendString(`<div class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-sm mt-1">
+			<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+			</svg>
+			<span>A ` + conflictType + ` link with this keyword already exists</span>
+		</div>`)
+	}
+
 	return c.SendString("")
 }

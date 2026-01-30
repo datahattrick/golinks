@@ -46,6 +46,15 @@ func main() {
 	}
 	log.Println("Migrations completed successfully")
 
+	// Sync organization fallback URLs from config
+	if len(cfg.OrgFallbacks) > 0 {
+		if err := database.SyncOrgFallbackURLs(ctx, cfg.OrgFallbacks); err != nil {
+			log.Printf("Warning: Failed to sync org fallback URLs: %v", err)
+		} else {
+			log.Printf("Synced %d organization fallback URL(s)", len(cfg.OrgFallbacks))
+		}
+	}
+
 	// Seed dev links in development mode
 	if cfg.IsDev() {
 		if err := database.SeedDevLinks(ctx); err != nil {
@@ -125,6 +134,7 @@ func main() {
 	moderationHandler := handlers.NewModerationHandler(database, cfg)
 	manageHandler := handlers.NewManageHandler(database, cfg)
 	healthHandler := handlers.NewHealthHandler(database)
+	userHandler := handlers.NewUserHandler(database, cfg)
 
 	// Start background health checker
 	healthChecker := jobs.NewHealthChecker(database, 1*time.Hour, 24*time.Hour)
@@ -153,6 +163,7 @@ func main() {
 	app.Get("/suggest", authMiddleware.RequireAuth, linkHandler.Suggest)
 	app.Get("/browse", authMiddleware.RequireAuth, linkHandler.Browse)
 	app.Get("/new", authMiddleware.RequireAuth, linkHandler.New)
+	app.Get("/links/check", authMiddleware.RequireAuth, linkHandler.CheckKeyword)
 	app.Post("/links", authMiddleware.RequireAuth, linkHandler.Create)
 	app.Delete("/links/:id", authMiddleware.RequireAuth, linkHandler.Delete)
 	app.Get("/profile", authMiddleware.RequireAuth, profileHandler.Show)
@@ -172,6 +183,12 @@ func main() {
 	app.Get("/manage/:id/edit", authMiddleware.RequireAuth, manageHandler.Edit)
 	app.Put("/manage/:id", authMiddleware.RequireAuth, manageHandler.Update)
 	app.Post("/health/:id", authMiddleware.RequireAuth, healthHandler.CheckLink)
+
+	// Admin routes (admin only)
+	app.Get("/admin/users", authMiddleware.RequireAuth, userHandler.ListUsers)
+	app.Post("/admin/users/:id/role", authMiddleware.RequireAuth, userHandler.UpdateUserRole)
+	app.Post("/admin/users/:id/org", authMiddleware.RequireAuth, userHandler.UpdateUserOrg)
+	app.Delete("/admin/users/:id", authMiddleware.RequireAuth, userHandler.DeleteUser)
 
 	// Random link route ("I'm Feeling Lucky")
 	app.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
