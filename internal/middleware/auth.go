@@ -39,23 +39,36 @@ func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 	// Fall back to session-based auth (OIDC)
 	sess := session.FromContext(c)
 	if sess == nil {
-		return c.Redirect().To("/auth/login")
+		return m.redirectToLogin(c, nil)
 	}
 
 	userSub := sess.Get("user_sub")
 	if userSub == nil {
-		return c.Redirect().To("/auth/login")
+		return m.redirectToLogin(c, sess)
 	}
 
 	user, err := m.db.GetUserBySub(c.Context(), userSub.(string))
 	if err != nil {
 		sess.Destroy()
-		return c.Redirect().To("/auth/login")
+		return m.redirectToLogin(c, nil)
 	}
 
 	m.loadGroupMemberships(c, user)
 	c.Locals("user", user)
 	return c.Next()
+}
+
+// redirectToLogin saves the current URL and redirects to login.
+func (m *AuthMiddleware) redirectToLogin(c fiber.Ctx, sess *session.Middleware) error {
+	// Store the original URL for redirect after login
+	originalURL := c.OriginalURL()
+	if sess == nil {
+		sess = session.FromContext(c)
+	}
+	if sess != nil && originalURL != "" && originalURL != "/auth/login" && originalURL != "/auth/callback" {
+		sess.Set("redirect_after_login", originalURL)
+	}
+	return c.Redirect().To("/auth/login")
 }
 
 // authenticateViaPKI extracts username from client cert (mTLS or header) and looks up user.

@@ -1,0 +1,140 @@
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">View and manage user accounts, roles, and organizations</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="glass-card rounded-xl p-4">
+            <div class="text-3xl font-bold text-brand-600 dark:text-brand-400">{{len .Users}}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
+        </div>
+        <div class="glass-card rounded-xl p-4">
+            <div class="text-3xl font-bold text-teal-600 dark:text-teal-400">{{len .Orgs}}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Organizations</div>
+        </div>
+        <div class="glass-card rounded-xl p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Users by Organization</div>
+            <div class="space-y-1">
+                {{range $slug, $count := .OrgCounts}}
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-700 dark:text-gray-300">{{if eq $slug "none"}}No Org{{else}}{{$slug}}{{end}}</span>
+                    <span class="font-medium text-gray-900 dark:text-white">{{$count}}</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="glass-card rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Organization</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="users-table">
+                    {{$currentUser := .User}}
+                    {{$orgs := .Orgs}}
+                    {{$roles := .Roles}}
+                    {{range .Users}}
+                    <tr id="user-{{.ID}}">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex items-center gap-3">
+                                {{if .Picture}}
+                                <img src="{{.Picture}}" alt="" class="w-8 h-8 rounded-full">
+                                {{else}}
+                                <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-brand-600 dark:text-brand-400">
+                                        {{if .Name}}{{slice .Name 0 1}}{{else}}?{{end}}
+                                    </span>
+                                </div>
+                                {{end}}
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-white">{{.Name}}</div>
+                                    {{if .Username}}
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">@{{.Username}}</div>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {{.Email}}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {{if and $currentUser (ne .ID $currentUser.ID)}}
+                            <select
+                                hx-post="/admin/users/{{.ID}}/org"
+                                hx-target="#user-{{.ID}}"
+                                hx-swap="outerHTML"
+                                name="organization_id"
+                                class="appearance-none text-sm pl-3 pr-8 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:border-gray-300 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 cursor-pointer transition-colors"
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%236b7280%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;">
+                                <option value="none" {{if not .OrganizationID}}selected{{end}}>No Organization</option>
+                                {{$userOrgID := .OrganizationID}}
+                                {{range $orgs}}
+                                <option value="{{.ID}}" {{if and $userOrgID (eq $userOrgID.String .ID.String)}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                            {{else}}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-sm {{if .OrganizationName}}bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400{{else}}bg-gray-50 text-gray-400 dark:bg-gray-800 dark:text-gray-500{{end}}">
+                                {{if .OrganizationName}}{{.OrganizationName}}{{else}}None{{end}}
+                            </span>
+                            {{end}}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {{if and $currentUser (ne .ID $currentUser.ID)}}
+                            <select
+                                hx-post="/admin/users/{{.ID}}/role"
+                                hx-target="#user-{{.ID}}"
+                                hx-swap="outerHTML"
+                                name="role"
+                                class="appearance-none text-sm pl-3 pr-8 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:border-gray-300 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 cursor-pointer transition-colors"
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%236b7280%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;">
+                                {{$userRole := .Role}}
+                                {{range $roles}}
+                                <option value="{{.}}" {{if eq $userRole .}}selected{{end}}>{{.}}</option>
+                                {{end}}
+                            </select>
+                            {{else}}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {{if eq .Role "admin"}}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                {{else if eq .Role "global_mod"}}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400
+                                {{else if eq .Role "org_mod"}}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
+                                {{else}}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{{end}}">
+                                {{.Role}}
+                            </span>
+                            {{end}}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {{.CreatedAt.Format "Jan 2, 2006"}}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {{if and $currentUser (ne .ID $currentUser.ID)}}
+                            <button
+                                hx-delete="/admin/users/{{.ID}}"
+                                hx-target="#user-{{.ID}}"
+                                hx-swap="outerHTML"
+                                hx-confirm="Are you sure you want to delete this user? This action cannot be undone."
+                                class="inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors">
+                                Delete
+                            </button>
+                            {{else}}
+                            <span class="text-gray-400 dark:text-gray-500 text-sm">—</span>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
