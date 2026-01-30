@@ -22,18 +22,26 @@ func NewUserLinkHandler(database *db.DB, cfg *config.Config) *UserLinkHandler {
 	return &UserLinkHandler{db: database, cfg: cfg}
 }
 
-// List renders the my links page with all user link overrides.
+// List renders the my links page with all user link overrides and pending submissions.
 func (h *UserLinkHandler) List(c fiber.Ctx) error {
 	user := c.Locals("user").(*models.User)
 
-	links, err := h.db.GetUserLinks(c.Context(), user.ID)
+	// Get personal links
+	personalLinks, err := h.db.GetUserLinks(c.Context(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	// Get pending submissions (org/global links awaiting approval)
+	pendingLinks, err := h.db.GetPendingLinksByUser(c.Context(), user.ID)
 	if err != nil {
 		return err
 	}
 
 	return c.Render("my_links", MergeBranding(fiber.Map{
-		"UserLinks": links,
-		"User":      user,
+		"UserLinks":    personalLinks,
+		"PendingLinks": pendingLinks,
+		"User":         user,
 	}, h.cfg))
 }
 

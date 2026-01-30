@@ -9,6 +9,8 @@ A self-hosted URL shortener for teams. Create memorable short links like `go/doc
 - **OIDC Authentication** - SSO integration with mock server for development
 - **Click Tracking** - Track how often each link is used
 - **Fast Search** - Trigram-based fuzzy search across keywords, URLs, and descriptions
+- **Multi-tenant** - Organizations with separate link namespaces
+- **Link Scopes** - Global, Organization, and Personal links
 
 ## Quick Start
 
@@ -45,6 +47,13 @@ make oidc-logs    # View OIDC server logs
 - `http://localhost:3000/go/docs` → Redirects to the URL for "docs"
 - `http://localhost:3000/docs` → Same redirect (shorter form)
 
+### Link Scopes
+
+Links are resolved in priority order:
+1. **Personal** - User's own shortcuts (highest priority)
+2. **Organization** - Shared within the user's organization
+3. **Global** - Available to everyone (lowest priority)
+
 ### Creating Links
 
 1. Log in via the Login button
@@ -77,8 +86,6 @@ docker pull ghcr.io/OWNER/golinks:v1.0.0
 
 ## Kubernetes Deployment
 
-### Basic Deployment
-
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -110,32 +117,15 @@ spec:
                 secretKeyRef:
                   name: golinks-secrets
                   key: session-secret
-          volumeMounts:
-            - name: config
-              mountPath: /app/config.yaml
-              subPath: config.yaml
-      volumes:
-        - name: config
-          configMap:
-            name: golinks-config
+            - name: OIDC_ISSUER
+              value: "https://accounts.google.com"
+            - name: OIDC_ORG_CLAIM
+              value: "hd"  # Google uses 'hd' for hosted domain
 ```
 
-### Configuration via ConfigMap
+## Configuration
 
-For complex organization and group hierarchies, use a YAML configuration file:
-
-```bash
-# Create ConfigMap from config file
-kubectl create configmap golinks-config --from-file=config.yaml
-```
-
-See `config.yaml.example` for the full configuration schema.
-
-## Advanced Configuration
-
-### Environment Variables
-
-Simple settings are configured via environment variables. Copy `.env.example` to `.env`:
+All settings are configured via environment variables. Copy `.env.example` to `.env`:
 
 ```bash
 # Database
@@ -147,50 +137,35 @@ OIDC_CLIENT_ID=your-client-id
 OIDC_CLIENT_SECRET=your-client-secret
 OIDC_REDIRECT_URL=https://go.example.com/auth/callback
 
+# Organization claim - extracts org from OIDC token
+# Examples: "hd" (Google), "org", "organization", "tenant"
+OIDC_ORG_CLAIM=hd
+
 # Site Branding
 SITE_TITLE=MyCompany Links
 SITE_TAGLINE=Internal URL shortcuts
 SITE_LOGO_URL=https://example.com/logo.png
+
+# Features
+ENABLE_RANDOM_KEYWORDS=true
 ```
 
-### YAML Configuration
+### Environment Variables Reference
 
-Complex hierarchical configuration (organizations, groups, tiers) is defined in a YAML file.
-Set `CONFIG_FILE` env var or mount to `/app/config.yaml`:
-
-```yaml
-# Organizations
-organizations:
-  - slug: acme
-    name: Acme Corporation
-    domains: [acme.com]
-
-# Groups with tier-based priority (1-99)
-groups:
-  - slug: acme-all
-    name: All Employees
-    tier: 25
-    organization: acme
-
-  - slug: acme-engineering
-    name: Engineering
-    tier: 50
-    organization: acme
-    parent: acme-all
-
-# Auto-assign users to groups based on OIDC claims
-auto_assignment:
-  claim: groups
-  mappings:
-    "engineering": [acme-engineering]
-```
-
-Link resolution priority (highest to lowest):
-1. **Personal links** (tier 100) - User's own shortcuts
-2. **Team groups** (tier 75-99) - Team-specific links
-3. **Department groups** (tier 50-74) - Department links
-4. **Organization groups** (tier 25-49) - Company-wide links
-5. **Global links** (tier 0) - Available to everyone
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://localhost:5432/golinks` |
+| `SERVER_ADDR` | Listen address | `:3000` |
+| `OIDC_ISSUER` | OIDC provider URL | (disabled if empty) |
+| `OIDC_CLIENT_ID` | OIDC client ID | |
+| `OIDC_CLIENT_SECRET` | OIDC client secret | |
+| `OIDC_REDIRECT_URL` | OAuth callback URL | `http://localhost:3000/auth/callback` |
+| `OIDC_ORG_CLAIM` | Claim name for organization | (disabled if empty) |
+| `SESSION_SECRET` | Cookie signing secret (min 32 chars) | |
+| `SITE_TITLE` | Site title | `GoLinks` |
+| `SITE_TAGLINE` | Site tagline | `Fast URL shortcuts for your team` |
+| `SITE_LOGO_URL` | Logo image URL | (text only if empty) |
+| `ENABLE_RANDOM_KEYWORDS` | Enable "I'm Feeling Lucky" | `false` |
 
 ## Tech Stack
 
