@@ -144,8 +144,18 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 
 // New renders the create link form.
 func (h *LinkHandler) New(c fiber.Ctx) error {
+	user, _ := c.Locals("user").(*models.User)
+
+	var orgName string
+	if user != nil && user.OrganizationID != nil {
+		if org, err := h.db.GetOrganizationByID(c.Context(), *user.OrganizationID); err == nil {
+			orgName = org.Name
+		}
+	}
+
 	return c.Render("new", MergeBranding(fiber.Map{
-		"User": c.Locals("user"),
+		"User":    user,
+		"OrgName": orgName,
 	}, h.cfg))
 }
 

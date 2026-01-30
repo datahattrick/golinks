@@ -14,8 +14,13 @@
                 required
                 pattern="[a-zA-Z0-9_-]+"
                 placeholder="my-link"
+                hx-get="/links/check"
+                hx-trigger="input changed delay:300ms, blur"
+                hx-target="#keyword-check"
+                hx-include="[name='scope']:checked"
                 class="w-full px-4 py-3 rounded-xl border-0 bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none font-mono transition-all">
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Letters, numbers, hyphens, and underscores only</p>
+            <div id="keyword-check"></div>
         </div>
 
         <div>
@@ -43,7 +48,7 @@
             <label class="block text-sm font-medium mb-3">Link Scope</label>
             <div class="space-y-2">
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="personal" checked class="text-brand-500 focus:ring-brand-500">
+                    <input type="radio" name="scope" value="personal" checked class="text-brand-500 focus:ring-brand-500 scope-radio">
                     <div>
                         <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Personal</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Only visible to you. Takes priority over organization and global links.</p>
@@ -51,15 +56,15 @@
                 </label>
                 {{if .User.OrganizationID}}
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="org" class="text-brand-500 focus:ring-brand-500">
+                    <input type="radio" name="scope" value="org" class="text-brand-500 focus:ring-brand-500 scope-radio">
                     <div>
-                        <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Organization</span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsOrgMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to all organization members.</p>
+                        <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{{if .OrgName}}{{.OrgName}}{{else}}Organization{{end}}</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsOrgMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to all {{if .OrgName}}{{.OrgName}}{{else}}organization{{end}} members.</p>
                     </div>
                 </label>
                 {{end}}
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="global" class="text-brand-500 focus:ring-brand-500">
+                    <input type="radio" name="scope" value="global" class="text-brand-500 focus:ring-brand-500 scope-radio">
                     <div>
                         <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Global</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsGlobalMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to everyone.</p>
@@ -80,3 +85,15 @@
         </div>
     </form>
 </div>
+
+<script>
+// Re-check keyword when scope changes
+document.querySelectorAll('.scope-radio').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const keyword = document.getElementById('keyword');
+        if (keyword.value) {
+            htmx.trigger(keyword, 'blur');
+        }
+    });
+});
+</script>

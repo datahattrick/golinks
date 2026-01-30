@@ -37,19 +37,32 @@ func (h *ModerationHandler) Index(c fiber.Ctx) error {
 	var globalPending, orgPending []models.Link
 	var err error
 
-	// Global mods see global pending links
+	// Global mods and admins see all pending links (global + all orgs)
 	if user.IsGlobalMod() {
 		globalPending, err = h.db.GetPendingGlobalLinks(c.Context())
 		if err != nil {
 			return err
 		}
-	}
-
-	// Org mods see their org's pending links
-	if user.OrganizationID != nil {
+		orgPending, err = h.db.GetAllPendingOrgLinks(c.Context())
+		if err != nil {
+			return err
+		}
+	} else if user.OrganizationID != nil {
+		// Org mods only see their org's pending links
 		orgPending, err = h.db.GetPendingOrgLinks(c.Context(), *user.OrganizationID)
 		if err != nil {
 			return err
+		}
+	}
+
+	// Build a map of org IDs to names for the template
+	orgNames := make(map[string]string)
+	if len(orgPending) > 0 {
+		orgs, err := h.db.GetAllOrganizations(c.Context())
+		if err == nil {
+			for _, org := range orgs {
+				orgNames[org.ID.String()] = org.Name
+			}
 		}
 	}
 
@@ -57,6 +70,7 @@ func (h *ModerationHandler) Index(c fiber.Ctx) error {
 		"User":          user,
 		"GlobalPending": globalPending,
 		"OrgPending":    orgPending,
+		"OrgNames":      orgNames,
 	}, h.cfg))
 }
 
@@ -144,13 +158,8 @@ func (h *ModerationHandler) Reject(c fiber.Ctx) error {
 
 // canModerate checks if a user can moderate a specific link.
 func canModerate(user *models.User, link *models.Link) bool {
-	// Admins can moderate anything
-	if user.IsAdmin() {
-		return true
-	}
-
-	// Global mods can moderate global links
-	if user.IsGlobalMod() && link.Scope == models.ScopeGlobal {
+	// Admins and global mods can moderate anything (global and org links)
+	if user.IsGlobalMod() {
 		return true
 	}
 
