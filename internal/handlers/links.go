@@ -9,6 +9,7 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // LinkHandler handles link CRUD operations.
@@ -180,8 +181,18 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		return htmxError(c, "Keyword and URL are required")
 	}
 
+	// Validate keyword format (alphanumeric, hyphens, underscores only)
+	if !validation.ValidateKeyword(keyword) {
+		return htmxError(c, "Keyword must contain only letters, numbers, hyphens, and underscores")
+	}
+
 	if keyword == "random" {
 		return htmxError(c, `The keyword "random" is reserved and cannot be used`)
+	}
+
+	// Validate URL scheme (http/https only, prevents javascript: XSS)
+	if valid, msg := validation.ValidateURL(url); !valid {
+		return htmxError(c, msg)
 	}
 
 	// Default scope based on what's enabled
