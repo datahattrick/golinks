@@ -11,6 +11,7 @@ import (
 
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // HealthHandler handles link health check operations.
@@ -64,6 +65,21 @@ func (h *HealthHandler) CheckLink(c fiber.Ctx) error {
 	// Check permissions
 	if !canManageLink(user, link) {
 		return fiber.NewError(fiber.StatusForbidden, "you do not have permission to check this link")
+	}
+
+	// Validate URL is safe to check (prevents SSRF)
+	if valid, msg := validation.ValidateURLForHealthCheck(link.URL); !valid {
+		errMsg := msg
+		if err := h.db.UpdateLinkHealthStatus(c.Context(), linkID, models.HealthUnhealthy, &errMsg); err != nil {
+			return err
+		}
+		link.HealthStatus = models.HealthUnhealthy
+		link.HealthError = &errMsg
+		now := time.Now()
+		link.HealthCheckedAt = &now
+		return c.Render("partials/health_status", fiber.Map{
+			"Link": link,
+		}, "")
 	}
 
 	// Perform health check

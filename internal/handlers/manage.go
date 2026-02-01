@@ -9,6 +9,7 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // ManageHandler handles link management operations for moderators.
@@ -128,6 +129,11 @@ func (h *ManageHandler) Update(c fiber.Ctx) error {
 
 	if newURL == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "URL is required")
+	}
+
+	// Validate URL scheme
+	if valid, msg := validation.ValidateURL(newURL); !valid {
+		return fiber.NewError(fiber.StatusBadRequest, msg)
 	}
 
 	// Update link

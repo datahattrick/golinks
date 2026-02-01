@@ -9,6 +9,7 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // UserLinkHandler handles user-specific link management.
@@ -58,6 +59,16 @@ func (h *UserLinkHandler) Create(c fiber.Ctx) error {
 
 	if link.Keyword == "" || link.URL == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "Keyword and URL are required")
+	}
+
+	// Validate keyword format
+	if !validation.ValidateKeyword(link.Keyword) {
+		return fiber.NewError(fiber.StatusBadRequest, "Keyword must contain only letters, numbers, hyphens, and underscores")
+	}
+
+	// Validate URL scheme
+	if valid, msg := validation.ValidateURL(link.URL); !valid {
+		return fiber.NewError(fiber.StatusBadRequest, msg)
 	}
 
 	if err := h.db.CreateUserLink(c.Context(), link); err != nil {

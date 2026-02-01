@@ -9,6 +9,7 @@ import (
 
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // HealthChecker performs background health checks on links.
@@ -92,7 +93,13 @@ func (h *HealthChecker) checkAll(ctx context.Context) {
 }
 
 // checkURL performs a HEAD request to check if a URL is healthy.
+// Validates URLs before making requests to prevent SSRF attacks.
 func (h *HealthChecker) checkURL(ctx context.Context, url string) (string, *string) {
+	// Validate URL is safe to check (prevents SSRF)
+	if valid, msg := validation.ValidateURLForHealthCheck(url); !valid {
+		return models.HealthUnhealthy, &msg
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		errMsg := "invalid URL: " + err.Error()

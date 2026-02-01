@@ -10,6 +10,7 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/validation"
 )
 
 // RedirectHandler handles keyword-to-URL redirects.
@@ -28,6 +29,15 @@ func NewRedirectHandler(database *db.DB, cfg *config.Config) *RedirectHandler {
 // At the same tier, user's primary group wins.
 func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	keyword := c.Params("keyword")
+
+	// Validate keyword format to prevent path traversal or injection attacks
+	if !validation.ValidateKeyword(keyword) {
+		return c.Status(fiber.StatusBadRequest).Render("error", MergeBranding(fiber.Map{
+			"Title":   "Invalid Keyword",
+			"Message": "The keyword contains invalid characters.",
+		}, h.cfg))
+	}
+
 	user, _ := c.Locals("user").(*models.User)
 
 	// Use tier-based resolution

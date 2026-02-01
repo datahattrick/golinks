@@ -8,10 +8,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/encryptcookie"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/session"
@@ -87,6 +89,22 @@ func New(cfg *config.Config) *Server {
 		CookieSameSite: "Lax",
 	})
 	app.Use(sessionMiddleware)
+
+	// Rate limiting middleware - 100 requests per minute per IP
+	app.Use(limiter.New(limiter.Config{
+		Max:        100,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Rate limit exceeded. Please try again later.",
+			})
+		},
+		SkipFailedRequests:     false,
+		SkipSuccessfulRequests: false,
+	}))
 
 	// Static files
 	app.Get("/static/*", static.New("./static"))
