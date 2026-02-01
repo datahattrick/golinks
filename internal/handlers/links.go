@@ -37,6 +37,9 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 	data := MergeBranding(fiber.Map{
 		"User":                 user,
 		"EnableRandomKeywords": h.cfg.EnableRandomKeywords,
+		"EnablePersonalLinks":  h.cfg.EnablePersonalLinks,
+		"EnableOrgLinks":       h.cfg.EnableOrgLinks,
+		"IsSimpleMode":         h.cfg.IsSimpleMode(),
 	}, h.cfg)
 
 	// Fetch top used, newest, and random keywords
@@ -154,8 +157,10 @@ func (h *LinkHandler) New(c fiber.Ctx) error {
 	}
 
 	return c.Render("new", MergeBranding(fiber.Map{
-		"User":    user,
-		"OrgName": orgName,
+		"User":               user,
+		"OrgName":            orgName,
+		"EnablePersonalLinks": h.cfg.EnablePersonalLinks,
+		"EnableOrgLinks":     h.cfg.EnableOrgLinks,
 	}, h.cfg))
 }
 
@@ -179,15 +184,25 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		return htmxError(c, `The keyword "random" is reserved and cannot be used`)
 	}
 
-	// Default to personal scope if not specified
+	// Default scope based on what's enabled
 	if scope == "" {
-		scope = "personal"
+		if h.cfg.EnablePersonalLinks {
+			scope = "personal"
+		} else {
+			scope = "global"
+		}
 	}
 
 	switch scope {
 	case "personal":
+		if !h.cfg.EnablePersonalLinks {
+			return htmxError(c, "Personal links are not enabled")
+		}
 		return h.createPersonalLink(c, user, keyword, url, description)
 	case "org":
+		if !h.cfg.EnableOrgLinks {
+			return htmxError(c, "Organization links are not enabled")
+		}
 		return h.createOrgLink(c, user, keyword, url, description)
 	case "global":
 		return h.createGlobalLink(c, user, keyword, url, description)
