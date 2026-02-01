@@ -67,7 +67,7 @@ The fastest way to get started is using Docker Compose:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_ORG/golinks.git
+git clone https://github.com/datahattrick/golinks.git
 cd golinks
 
 # Start PostgreSQL + mock OIDC server, then run the app
@@ -99,10 +99,10 @@ Container images are automatically built and published to GitHub Container Regis
 
 ```bash
 # Pull latest image
-docker pull ghcr.io/YOUR_ORG/golinks:main
+docker pull ghcr.io/datahattrick/golinks:latest
 
 # Pull specific version
-docker pull ghcr.io/YOUR_ORG/golinks:v1.0.0
+docker pull ghcr.io/datahattrick/golinks:v1.0.0
 
 # Run with environment variables
 docker run -d \
@@ -112,7 +112,7 @@ docker run -d \
   -e OIDC_CLIENT_ID="your-client-id" \
   -e OIDC_CLIENT_SECRET="your-client-secret" \
   -e SESSION_SECRET="your-32-char-secret-here" \
-  ghcr.io/YOUR_ORG/golinks:main
+  ghcr.io/datahattrick/golinks:main
 ```
 
 #### Using Docker Compose
@@ -132,7 +132,7 @@ make docker-down
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_ORG/golinks.git
+git clone https://github.com/datahattrick/golinks.git
 cd golinks
 
 # Install dependencies
@@ -180,7 +180,7 @@ spec:
     spec:
       containers:
         - name: golinks
-          image: ghcr.io/YOUR_ORG/golinks:main
+          image: ghcr.io/datahattrick/golinks:main
           ports:
             - containerPort: 3000
           env:
@@ -305,7 +305,14 @@ All settings are configured via environment variables. Copy `.env.example` to `.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ENABLE_RANDOM_KEYWORDS` | Enable "I'm Feeling Lucky" feature | `false` |
+| `ENABLE_PERSONAL_LINKS` | Enable personal link scopes | `true` |
+| `ENABLE_ORG_LINKS` | Enable organization link scopes | `true` |
 | `CORS_ORIGINS` | Comma-separated allowed CORS origins | (none) |
+
+**Simple Mode**: When both `ENABLE_PERSONAL_LINKS` and `ENABLE_ORG_LINKS` are set to `false`, the application runs in "simple mode":
+- Only global links are available
+- The redirect API (`/go/:keyword`) does not require authentication
+- Frontend still requires OIDC authentication
 
 #### Organization Fallbacks
 
@@ -653,7 +660,7 @@ Current migrations:
 ```
 golinks/
 ├── cmd/server/
-│   └── main.go              # Entry point, route registration, middleware setup
+│   └── main.go              # Entry point, initializes DB and server
 ├── internal/
 │   ├── config/              # Environment variable loading
 │   │   └── config.go        # Configuration struct and loader
@@ -672,11 +679,14 @@ golinks/
 │   │   └── redirect.go      # Keyword → URL redirect
 │   ├── middleware/
 │   │   └── auth.go          # Session-based auth middleware
-│   └── models/              # Data structures
-│       ├── user.go          # User model with role helpers
-│       ├── link.go          # Link model with status helpers
-│       ├── organization.go  # Organization model
-│       └── group.go         # Group model for tiers
+│   ├── models/              # Data structures
+│   │   ├── user.go          # User model with role helpers
+│   │   ├── link.go          # Link model with status helpers
+│   │   ├── organization.go  # Organization model
+│   │   └── group.go         # Group model for tiers
+│   └── server/              # Server and API configuration
+│       ├── server.go        # Fiber app setup, middleware, TLS config
+│       └── routes.go        # Route registration
 ├── migrations/              # Embedded SQL migrations (golang-migrate)
 ├── views/                   # Go HTML templates
 │   ├── layouts/
@@ -866,5 +876,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_ORG/golinks/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_ORG/golinks/discussions)
+- **Issues**: [GitHub Issues](https://github.com/datahattrick/golinks/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/datahattrick/golinks/discussions)

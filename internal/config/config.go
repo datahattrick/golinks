@@ -41,6 +41,8 @@ type Config struct {
 
 	// Features
 	EnableRandomKeywords bool // Enable random keywords section and "I'm Feeling Lucky" feature
+	EnablePersonalLinks  bool // Enable personal link scopes (requires auth)
+	EnableOrgLinks       bool // Enable organization link scopes (requires auth)
 
 	// Organizations
 	OrgFallbacks map[string]string // Map of org slug to fallback redirect URL, e.g. {"org1": "https://other.com/go/"}
@@ -72,6 +74,8 @@ func Load() *Config {
 		SessionSecret:    getEnv("SESSION_SECRET", "change-me-in-production-min-32-chars"),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
+		EnablePersonalLinks:  getEnv("ENABLE_PERSONAL_LINKS", "true") != "false",
+		EnableOrgLinks:       getEnv("ENABLE_ORG_LINKS", "true") != "false",
 		OrgFallbacks:         parseOrgFallbacks(getEnv("ORG_FALLBACKS", "")),
 
 		SiteTitle:   getEnv("SITE_TITLE", "GoLinks"),
@@ -96,6 +100,12 @@ func (c *Config) IsDev() bool {
 // IsMTLSEnabled returns true if mTLS is configured with a CA file.
 func (c *Config) IsMTLSEnabled() bool {
 	return c.TLSEnabled && c.TLSCAFile != ""
+}
+
+// IsSimpleMode returns true if both personal and org links are disabled.
+// In simple mode, only global links are used and the redirect API doesn't require authentication.
+func (c *Config) IsSimpleMode() bool {
+	return !c.EnablePersonalLinks && !c.EnableOrgLinks
 }
 
 // parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
