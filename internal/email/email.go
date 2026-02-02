@@ -32,13 +32,13 @@ func NewService(cfg *config.Config) *Service {
 	return s
 }
 
-// IsEnabled returns true if email is enabled.
+// IsEnabled returns true if email sending is enabled.
 func (s *Service) IsEnabled() bool {
 	return s.enabled
 }
 
-// SendEmail sends an email to the specified recipients.
-func (s *Service) SendEmail(to []string, subject, htmlBody, textBody string) error {
+// Send sends an email with the given subject and body to the recipients.
+func (s *Service) Send(to []string, subject, htmlBody, textBody string) error {
 	if !s.enabled {
 		return nil
 	}
@@ -47,66 +47,67 @@ func (s *Service) SendEmail(to []string, subject, htmlBody, textBody string) err
 		return nil
 	}
 
-	// Build email headers and body
+	// Build the email message
 	from := s.cfg.SMTPFrom
 	if s.cfg.SMTPFromName != "" {
 		from = fmt.Sprintf("%s <%s>", s.cfg.SMTPFromName, s.cfg.SMTPFrom)
 	}
 
 	// Build MIME message
-	boundary := "GoLinksBoundary123456789"
-	var msg strings.Builder
-
+	msg := strings.Builder{}
 	msg.WriteString(fmt.Sprintf("From: %s\r\n", from))
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	msg.WriteString("MIME-Version: 1.0\r\n")
-	msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
-	msg.WriteString("\r\n")
 
-	// Plain text part
-	if textBody != "" {
+	if htmlBody != "" && textBody != "" {
+		// Multipart message
+		boundary := "----=_Part_0_GoLinks"
+		msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
+		msg.WriteString("\r\n")
 		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-		msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
+		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 		msg.WriteString("\r\n")
 		msg.WriteString(textBody)
 		msg.WriteString("\r\n")
-	}
-
-	// HTML part
-	if htmlBody != "" {
 		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-		msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 		msg.WriteString("\r\n")
 		msg.WriteString(htmlBody)
 		msg.WriteString("\r\n")
+		msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+	} else if htmlBody != "" {
+		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+		msg.WriteString("\r\n")
+		msg.WriteString(htmlBody)
+	} else {
+		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+		msg.WriteString("\r\n")
+		msg.WriteString(textBody)
 	}
 
-	msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
-
-	// Send email based on TLS mode
+	// Send based on TLS mode
 	addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
 
 	var auth smtp.Auth
-	if s.cfg.SMTPUsername != "" && s.cfg.SMTPPassword != "" {
+	if s.cfg.SMTPUsername != "" {
 		auth = smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPHost)
 	}
 
 	switch s.cfg.SMTPTLS {
 	case "tls":
-		return s.sendWithTLS(addr, auth, to, msg.String())
+		return s.sendTLS(addr, auth, s.cfg.SMTPFrom, to, []byte(msg.String()))
 	case "starttls":
-		return s.sendWithStartTLS(addr, auth, to, msg.String())
-	default: // "none"
+		return s.sendStartTLS(addr, auth, s.cfg.SMTPFrom, to, []byte(msg.String()))
+	default:
 		return smtp.SendMail(addr, auth, s.cfg.SMTPFrom, to, []byte(msg.String()))
 	}
 }
 
-// sendWithTLS sends email using implicit TLS (port 465).
-func (s *Service) sendWithTLS(addr string, auth smtp.Auth, to []string, msg string) error {
+// sendTLS sends email over implicit TLS (port 465).
+func (s *Service) sendTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
 	tlsConfig := &tls.Config{
 		ServerName: s.cfg.SMTPHost,
-		MinVersion: tls.VersionTLS12,
 	}
 
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
@@ -117,7 +118,7 @@ func (s *Service) sendWithTLS(addr string, auth smtp.Auth, to []string, msg stri
 
 	client, err := smtp.NewClient(conn, s.cfg.SMTPHost)
 	if err != nil {
-		return fmt.Errorf("SMTP client failed: %w", err)
+		return fmt.Errorf("SMTP client creation failed: %w", err)
 	}
 	defer client.Close()
 
@@ -127,12 +128,12 @@ func (s *Service) sendWithTLS(addr string, auth smtp.Auth, to []string, msg stri
 		}
 	}
 
-	if err := client.Mail(s.cfg.SMTPFrom); err != nil {
+	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("SMTP MAIL failed: %w", err)
 	}
 
-	for _, rcpt := range to {
-		if err := client.Rcpt(rcpt); err != nil {
+	for _, addr := range to {
+		if err := client.Rcpt(addr); err != nil {
 			return fmt.Errorf("SMTP RCPT failed: %w", err)
 		}
 	}
@@ -142,7 +143,7 @@ func (s *Service) sendWithTLS(addr string, auth smtp.Auth, to []string, msg stri
 		return fmt.Errorf("SMTP DATA failed: %w", err)
 	}
 
-	if _, err := w.Write([]byte(msg)); err != nil {
+	if _, err := w.Write(msg); err != nil {
 		return fmt.Errorf("SMTP write failed: %w", err)
 	}
 
@@ -153,18 +154,16 @@ func (s *Service) sendWithTLS(addr string, auth smtp.Auth, to []string, msg stri
 	return client.Quit()
 }
 
-// sendWithStartTLS sends email using STARTTLS (port 587).
-func (s *Service) sendWithStartTLS(addr string, auth smtp.Auth, to []string, msg string) error {
+// sendStartTLS sends email using STARTTLS (port 587).
+func (s *Service) sendStartTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
 	client, err := smtp.Dial(addr)
 	if err != nil {
 		return fmt.Errorf("SMTP dial failed: %w", err)
 	}
 	defer client.Close()
 
-	// Send STARTTLS
 	tlsConfig := &tls.Config{
 		ServerName: s.cfg.SMTPHost,
-		MinVersion: tls.VersionTLS12,
 	}
 
 	if err := client.StartTLS(tlsConfig); err != nil {
@@ -177,12 +176,12 @@ func (s *Service) sendWithStartTLS(addr string, auth smtp.Auth, to []string, msg
 		}
 	}
 
-	if err := client.Mail(s.cfg.SMTPFrom); err != nil {
+	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("SMTP MAIL failed: %w", err)
 	}
 
-	for _, rcpt := range to {
-		if err := client.Rcpt(rcpt); err != nil {
+	for _, addr := range to {
+		if err := client.Rcpt(addr); err != nil {
 			return fmt.Errorf("SMTP RCPT failed: %w", err)
 		}
 	}
@@ -192,7 +191,7 @@ func (s *Service) sendWithStartTLS(addr string, auth smtp.Auth, to []string, msg
 		return fmt.Errorf("SMTP DATA failed: %w", err)
 	}
 
-	if _, err := w.Write([]byte(msg)); err != nil {
+	if _, err := w.Write(msg); err != nil {
 		return fmt.Errorf("SMTP write failed: %w", err)
 	}
 
@@ -203,17 +202,15 @@ func (s *Service) sendWithStartTLS(addr string, auth smtp.Auth, to []string, msg
 	return client.Quit()
 }
 
-// SendAsync sends an email asynchronously (fire and forget with logging).
+// SendAsync sends an email asynchronously (non-blocking).
 func (s *Service) SendAsync(to []string, subject, htmlBody, textBody string) {
-	if !s.enabled || len(to) == 0 {
+	if !s.enabled {
 		return
 	}
 
 	go func() {
-		if err := s.SendEmail(to, subject, htmlBody, textBody); err != nil {
+		if err := s.Send(to, subject, htmlBody, textBody); err != nil {
 			log.Printf("Failed to send email to %v: %v", to, err)
-		} else {
-			log.Printf("Email sent successfully to %v: %s", to, subject)
 		}
 	}()
 }

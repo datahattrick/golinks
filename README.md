@@ -55,9 +55,11 @@ A self-hosted URL shortener for teams. Create memorable short links like `go/doc
 - **Multi-tenant** - Organizations with separate link namespaces
 - **Link Scopes** - Global, Organization, and Personal links with priority resolution
 - **Moderation** - Approval workflow for new links with role-based permissions
-- **Health Checking** - Automatic URL health monitoring
+- **Email Notifications** - SMTP-based alerts for submissions, approvals, rejections, and health issues
+- **Health Checking** - Automatic URL health monitoring with moderator alerts
 - **Fallback Redirects** - Per-organization fallback URLs when links aren't found
 - **Groups & Tiers** - Hierarchical group structure with tier-based link resolution
+- **Helm Chart** - OpenShift-compatible Kubernetes deployment
 
 ---
 
@@ -95,13 +97,15 @@ Visit http://localhost:3000 and click "Login" to authenticate with the mock OIDC
 
 #### Using Pre-built Images
 
-Container images are automatically built and published to GitHub Container Registry:
+Container images are automatically built and published to both GitHub Container Registry and DockerHub:
 
 ```bash
-# Pull latest image
-docker pull ghcr.io/datahattrick/golinks:latest
+# Pull from DockerHub
+docker pull qskhattrick/golinks:latest
+docker pull qskhattrick/golinks:v1.0.0
 
-# Pull specific version
+# Pull from GitHub Container Registry
+docker pull ghcr.io/datahattrick/golinks:latest
 docker pull ghcr.io/datahattrick/golinks:v1.0.0
 
 # Run with environment variables
@@ -112,8 +116,14 @@ docker run -d \
   -e OIDC_CLIENT_ID="your-client-id" \
   -e OIDC_CLIENT_SECRET="your-client-secret" \
   -e SESSION_SECRET="your-32-char-secret-here" \
-  ghcr.io/datahattrick/golinks:main
+  qskhattrick/golinks:latest
 ```
+
+**Available Tags:**
+- `latest` - Latest build from main branch
+- `v1.0.0`, `v1.0`, `v1` - Semantic version tags
+- `main` - Main branch builds
+- `<sha>` - Specific commit builds
 
 #### Using Docker Compose
 
@@ -149,7 +159,43 @@ export SESSION_SECRET="your-32-character-secret-here"
 ./golinks
 ```
 
-### Kubernetes Deployment
+### Helm Chart (OpenShift Compatible)
+
+A Helm chart is provided for Kubernetes and OpenShift deployments:
+
+```bash
+# Create secrets
+kubectl create secret generic golinks-secret \
+  --from-literal=SESSION_SECRET=$(openssl rand -base64 32) \
+  --from-literal=OIDC_CLIENT_SECRET=your-client-secret \
+  --from-literal=DATABASE_URL=postgres://user:pass@host:5432/golinks \
+  --from-literal=SMTP_PASSWORD=your-smtp-password
+
+# Install the chart
+helm install golinks ./chart/golinks \
+  --set existingSecret=golinks-secret \
+  --set route.host=go.example.com \
+  --set oidc.issuer=https://accounts.google.com \
+  --set oidc.clientId=your-client-id \
+  --set image.repository=qskhattrick/golinks \
+  --set image.tag=v1.0.0
+
+# With email notifications
+helm install golinks ./chart/golinks \
+  --set existingSecret=golinks-secret \
+  --set smtp.enabled=true \
+  --set smtp.host=smtp.example.com \
+  --set smtp.from=noreply@example.com
+```
+
+**OpenShift Features:**
+- Security context compatible with restricted SCC
+- OpenShift Route with TLS edge termination
+- Runs as non-root with arbitrary UID
+
+See `chart/golinks/values.yaml` for all configuration options.
+
+### Kubernetes Deployment (Manual)
 
 ```yaml
 apiVersion: v1
@@ -339,6 +385,29 @@ When a keyword is not found, users in the specified org are redirected to the fa
 | `TLS_CA_FILE` | CA file for client cert verification (mTLS) | - |
 | `CLIENT_CERT_HEADER` | Header containing client cert CN (for ingress-terminated TLS) | - |
 
+#### Email Notifications (SMTP)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SMTP_ENABLED` | Enable email notifications | (disabled if empty) |
+| `SMTP_HOST` | SMTP server hostname | - |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USERNAME` | SMTP authentication username | - |
+| `SMTP_PASSWORD` | SMTP authentication password | - |
+| `SMTP_FROM` | Sender email address | - |
+| `SMTP_FROM_NAME` | Sender display name | `GoLinks` |
+| `SMTP_TLS` | TLS mode: `none`, `starttls`, `tls` | `starttls` |
+
+#### Email Notification Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EMAIL_NOTIFY_MODS_ON_SUBMIT` | Notify moderators on new submissions | `true` |
+| `EMAIL_NOTIFY_USER_ON_APPROVAL` | Notify users when links are approved | `true` |
+| `EMAIL_NOTIFY_USER_ON_REJECTION` | Notify users when links are rejected | `true` |
+| `EMAIL_NOTIFY_USER_ON_DELETION` | Notify users when links are deleted | `true` |
+| `EMAIL_NOTIFY_MODS_ON_HEALTH_FAILURE` | Notify moderators on health check failures | `true` |
+
 ### OIDC Authentication
 
 GoLinks supports any OpenID Connect compliant identity provider:
@@ -432,6 +501,42 @@ For ingress-terminated TLS with client cert forwarding:
 
 ```bash
 CLIENT_CERT_HEADER=X-Client-CN
+```
+
+### Email Notifications
+
+GoLinks can send email notifications for various events. Configure SMTP to enable:
+
+```bash
+# SMTP Server Configuration
+SMTP_ENABLED=true
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM=noreply@example.com
+SMTP_FROM_NAME=GoLinks
+SMTP_TLS=starttls  # none, starttls (port 587), or tls (port 465)
+```
+
+**Notification Types:**
+
+| Event | Recipients | Description |
+|-------|------------|-------------|
+| Link Submitted | Moderators | New link pending approval |
+| Link Approved | Submitter | Link has been approved and is active |
+| Link Rejected | Submitter | Link was not approved |
+| Link Deleted | Creator | Link was removed by a moderator |
+| Health Check Failed | Moderators | Links failing health checks |
+
+**Disable specific notifications:**
+
+```bash
+EMAIL_NOTIFY_MODS_ON_SUBMIT=false
+EMAIL_NOTIFY_USER_ON_APPROVAL=false
+EMAIL_NOTIFY_USER_ON_REJECTION=false
+EMAIL_NOTIFY_USER_ON_DELETION=false
+EMAIL_NOTIFY_MODS_ON_HEALTH_FAILURE=false
 ```
 
 ---
@@ -677,6 +782,10 @@ golinks/
 │   │   ├── users.go         # User management (admin)
 │   │   ├── profile.go       # User profile page
 │   │   └── redirect.go      # Keyword → URL redirect
+│   ├── email/               # Email notifications
+│   │   ├── email.go         # SMTP service
+│   │   ├── templates.go     # Email templates
+│   │   └── notifications.go # Notification handlers
 │   ├── middleware/
 │   │   └── auth.go          # Session-based auth middleware
 │   ├── models/              # Data structures
@@ -695,6 +804,10 @@ golinks/
 ├── static/
 │   ├── css/                 # Stylesheets
 │   └── favicon.svg          # Site favicon
+├── chart/golinks/           # Helm chart for Kubernetes/OpenShift
+│   ├── Chart.yaml           # Chart metadata
+│   ├── values.yaml          # Default configuration values
+│   └── templates/           # Kubernetes manifests
 ├── Dockerfile               # Multi-stage Docker build
 ├── docker-compose.yml       # Local development stack
 ├── Makefile                 # Build and development commands
@@ -852,6 +965,31 @@ lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill
 - Use `gofmt` for formatting
 - Add tests for new functionality
 - Update documentation as needed
+
+### Creating Releases
+
+Releases are created using git tags. When a tag is pushed, the CI/CD pipeline automatically builds and publishes container images to both GitHub Container Registry and DockerHub.
+
+```bash
+# Create a new release
+git tag v1.0.0
+git push origin v1.0.0
+
+# Create a release with annotation
+git tag -a v1.0.0 -m "Release v1.0.0: Initial stable release"
+git push origin v1.0.0
+```
+
+**Tag Format:**
+- Use semantic versioning: `v<major>.<minor>.<patch>` (e.g., `v1.0.0`, `v1.2.3`)
+- Prefix with `v` for version tags
+
+**Published Tags:**
+- `v1.0.0` - Exact version
+- `v1.0` - Minor version (updated with each patch)
+- `v1` - Major version (updated with each minor/patch)
+- `latest` - Latest main branch build
+- `<sha>` - Specific commit hash
 
 ---
 

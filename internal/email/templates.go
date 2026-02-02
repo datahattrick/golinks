@@ -19,29 +19,29 @@ func NewTemplates(cfg *config.Config) *Templates {
 	return &Templates{cfg: cfg}
 }
 
-// baseHTML wraps content in a consistent HTML email template.
+// baseHTML wraps content in a basic HTML email template.
 func (t *Templates) baseHTML(title, content string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>%s</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
         .header h1 { margin: 0; font-size: 24px; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .footer { background: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none; }
+        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; }
+        .footer { background: #f3f4f6; padding: 15px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; font-size: 12px; color: #6b7280; }
         .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0; }
         .button:hover { background: #1d4ed8; }
-        .info-box { background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; margin: 15px 0; }
-        .label { font-weight: 600; color: #374151; }
-        .value { color: #6b7280; }
-        .success { color: #059669; }
-        .warning { color: #d97706; }
-        .error { color: #dc2626; }
-        code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+        .link-details { background: white; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #e5e7eb; }
+        .link-details dt { font-weight: 600; color: #374151; margin-top: 10px; }
+        .link-details dd { margin: 5px 0 0 0; color: #6b7280; }
+        .status-approved { color: #059669; font-weight: 600; }
+        .status-rejected { color: #dc2626; font-weight: 600; }
+        .status-pending { color: #d97706; font-weight: 600; }
+        .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; border-radius: 6px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -52,14 +52,14 @@ func (t *Templates) baseHTML(title, content string) string {
         %s
     </div>
     <div class="footer">
-        <p>This email was sent by %s</p>
-        <p><a href="%s">%s</a></p>
+        <p>This is an automated message from %s.</p>
+        <p>%s</p>
     </div>
 </body>
-</html>`, html.EscapeString(title), html.EscapeString(t.cfg.SiteTitle), content, html.EscapeString(t.cfg.SiteTitle), t.cfg.BaseURL, t.cfg.BaseURL)
+</html>`, html.EscapeString(title), html.EscapeString(t.cfg.SiteTitle), content, html.EscapeString(t.cfg.SiteTitle), html.EscapeString(t.cfg.BaseURL))
 }
 
-// LinkSubmittedForReview generates email for moderators when a link needs review.
+// LinkSubmittedForReview generates an email for moderators when a new link is submitted.
 func (t *Templates) LinkSubmittedForReview(link *models.Link, submitter *models.User) (subject, htmlBody, textBody string) {
 	subject = fmt.Sprintf("[%s] New link pending review: %s", t.cfg.SiteTitle, link.Keyword)
 
@@ -70,32 +70,35 @@ func (t *Templates) LinkSubmittedForReview(link *models.Link, submitter *models.
 
 	content := fmt.Sprintf(`
         <p>A new link has been submitted and requires your review.</p>
-
-        <div class="info-box">
-            <p><span class="label">Keyword:</span> <code>%s</code></p>
-            <p><span class="label">URL:</span> <a href="%s">%s</a></p>
-            <p><span class="label">Scope:</span> %s</p>
-            <p><span class="label">Description:</span> %s</p>
-            <p><span class="label">Submitted by:</span> %s (%s)</p>
-        </div>
-
-        <p style="text-align: center;">
-            <a href="%s/moderation" class="button">Review in Dashboard</a>
+        <dl class="link-details">
+            <dt>Keyword</dt>
+            <dd><strong>%s</strong></dd>
+            <dt>URL</dt>
+            <dd><a href="%s">%s</a></dd>
+            <dt>Scope</dt>
+            <dd>%s</dd>
+            <dt>Description</dt>
+            <dd>%s</dd>
+            <dt>Submitted by</dt>
+            <dd>%s (%s)</dd>
+        </dl>
+        <p>
+            <a href="%s/moderation" class="button">Review Link</a>
         </p>
-    `,
-		html.EscapeString(link.Keyword),
+    `, html.EscapeString(link.Keyword),
 		html.EscapeString(link.URL),
 		html.EscapeString(link.URL),
 		scope,
 		html.EscapeString(link.Description),
 		html.EscapeString(submitter.Name),
 		html.EscapeString(submitter.Email),
-		t.cfg.BaseURL,
-	)
+		t.cfg.BaseURL)
 
 	htmlBody = t.baseHTML(subject, content)
 
-	textBody = fmt.Sprintf(`New link pending review
+	textBody = fmt.Sprintf(`New Link Pending Review
+
+A new link has been submitted and requires your review.
 
 Keyword: %s
 URL: %s
@@ -103,328 +106,257 @@ Scope: %s
 Description: %s
 Submitted by: %s (%s)
 
-Review at: %s/moderation
+Review the link at: %s/moderation
 
 --
 %s
-%s`,
-		link.Keyword,
-		link.URL,
-		scope,
-		link.Description,
-		submitter.Name,
-		submitter.Email,
-		t.cfg.BaseURL,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, link.Keyword, link.URL, scope, link.Description, submitter.Name, submitter.Email, t.cfg.BaseURL, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
 }
 
-// LinkApproved generates email for user when their link is approved.
+// LinkApproved generates an email for users when their link is approved.
 func (t *Templates) LinkApproved(link *models.Link, approver *models.User) (subject, htmlBody, textBody string) {
-	subject = fmt.Sprintf("[%s] Your link '%s' has been approved!", t.cfg.SiteTitle, link.Keyword)
+	subject = fmt.Sprintf("[%s] Your link '%s' has been approved", t.cfg.SiteTitle, link.Keyword)
 
 	content := fmt.Sprintf(`
-        <p>Great news! Your link has been approved and is now active.</p>
-
-        <div class="info-box">
-            <p><span class="label">Keyword:</span> <code>%s</code></p>
-            <p><span class="label">URL:</span> <a href="%s">%s</a></p>
-            <p><span class="label">Status:</span> <span class="success">Approved</span></p>
-            <p><span class="label">Approved by:</span> %s</p>
-        </div>
-
-        <p>You can now use your link:</p>
-        <p style="text-align: center;">
-            <a href="%s/go/%s" class="button">%s/go/%s</a>
+        <p>Great news! Your link has been <span class="status-approved">approved</span> and is now active.</p>
+        <dl class="link-details">
+            <dt>Keyword</dt>
+            <dd><strong>%s</strong></dd>
+            <dt>URL</dt>
+            <dd><a href="%s">%s</a></dd>
+            <dt>Short Link</dt>
+            <dd><a href="%s/go/%s">%s/go/%s</a></dd>
+        </dl>
+        <p>You can now use your short link to redirect to the destination URL.</p>
+        <p>
+            <a href="%s" class="button">Go to %s</a>
         </p>
-    `,
-		html.EscapeString(link.Keyword),
+    `, html.EscapeString(link.Keyword),
 		html.EscapeString(link.URL),
 		html.EscapeString(link.URL),
-		html.EscapeString(approver.Name),
-		t.cfg.BaseURL,
-		html.EscapeString(link.Keyword),
-		t.cfg.BaseURL,
-		html.EscapeString(link.Keyword),
-	)
+		t.cfg.BaseURL, html.EscapeString(link.Keyword),
+		t.cfg.BaseURL, html.EscapeString(link.Keyword),
+		t.cfg.BaseURL, t.cfg.SiteTitle)
 
 	htmlBody = t.baseHTML(subject, content)
 
-	textBody = fmt.Sprintf(`Your link has been approved!
+	textBody = fmt.Sprintf(`Link Approved
+
+Great news! Your link has been approved and is now active.
 
 Keyword: %s
 URL: %s
-Status: Approved
-Approved by: %s
+Short Link: %s/go/%s
 
-Your link is now active at: %s/go/%s
+You can now use your short link to redirect to the destination URL.
 
 --
 %s
-%s`,
-		link.Keyword,
-		link.URL,
-		approver.Name,
-		t.cfg.BaseURL,
-		link.Keyword,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, link.Keyword, link.URL, t.cfg.BaseURL, link.Keyword, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
 }
 
-// LinkRejected generates email for user when their link is rejected.
-func (t *Templates) LinkRejected(link *models.Link, rejector *models.User, reason string) (subject, htmlBody, textBody string) {
+// LinkRejected generates an email for users when their link is rejected.
+func (t *Templates) LinkRejected(link *models.Link, reason string) (subject, htmlBody, textBody string) {
 	subject = fmt.Sprintf("[%s] Your link '%s' was not approved", t.cfg.SiteTitle, link.Keyword)
 
 	reasonHTML := ""
 	reasonText := ""
 	if reason != "" {
-		reasonHTML = fmt.Sprintf(`<p><span class="label">Reason:</span> %s</p>`, html.EscapeString(reason))
-		reasonText = fmt.Sprintf("\nReason: %s", reason)
+		reasonHTML = fmt.Sprintf(`
+            <dt>Reason</dt>
+            <dd>%s</dd>
+        `, html.EscapeString(reason))
+		reasonText = fmt.Sprintf("Reason: %s\n", reason)
 	}
 
 	content := fmt.Sprintf(`
-        <p>Unfortunately, your link submission was not approved.</p>
-
-        <div class="info-box">
-            <p><span class="label">Keyword:</span> <code>%s</code></p>
-            <p><span class="label">URL:</span> %s</p>
-            <p><span class="label">Status:</span> <span class="error">Rejected</span></p>
-            <p><span class="label">Reviewed by:</span> %s</p>
+        <p>Unfortunately, your link was <span class="status-rejected">not approved</span> by a moderator.</p>
+        <dl class="link-details">
+            <dt>Keyword</dt>
+            <dd><strong>%s</strong></dd>
+            <dt>URL</dt>
+            <dd>%s</dd>
             %s
-        </div>
-
-        <p>If you believe this was a mistake, please contact a moderator or submit a new link with appropriate modifications.</p>
-
-        <p style="text-align: center;">
+        </dl>
+        <p>If you believe this was an error, please contact a moderator or submit a new link with any necessary corrections.</p>
+        <p>
             <a href="%s/new" class="button">Submit New Link</a>
         </p>
-    `,
-		html.EscapeString(link.Keyword),
+    `, html.EscapeString(link.Keyword),
 		html.EscapeString(link.URL),
-		html.EscapeString(rejector.Name),
 		reasonHTML,
-		t.cfg.BaseURL,
-	)
+		t.cfg.BaseURL)
 
 	htmlBody = t.baseHTML(subject, content)
 
-	textBody = fmt.Sprintf(`Your link was not approved
+	textBody = fmt.Sprintf(`Link Not Approved
+
+Unfortunately, your link was not approved by a moderator.
 
 Keyword: %s
 URL: %s
-Status: Rejected
-Reviewed by: %s%s
+%s
+If you believe this was an error, please contact a moderator or submit a new link with any necessary corrections.
 
-If you believe this was a mistake, please contact a moderator or submit a new link.
-
-Submit new link: %s/new
+Submit a new link at: %s/new
 
 --
 %s
-%s`,
-		link.Keyword,
-		link.URL,
-		rejector.Name,
-		reasonText,
-		t.cfg.BaseURL,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, link.Keyword, link.URL, reasonText, t.cfg.BaseURL, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
 }
 
-// LinkDeleted generates email for user when their link is deleted.
-func (t *Templates) LinkDeleted(link *models.Link, deletedBy *models.User, reason string) (subject, htmlBody, textBody string) {
+// LinkDeleted generates an email for users when their link is deleted.
+func (t *Templates) LinkDeleted(link *models.Link, reason string) (subject, htmlBody, textBody string) {
 	subject = fmt.Sprintf("[%s] Your link '%s' has been removed", t.cfg.SiteTitle, link.Keyword)
 
 	reasonHTML := ""
 	reasonText := ""
 	if reason != "" {
-		reasonHTML = fmt.Sprintf(`<p><span class="label">Reason:</span> %s</p>`, html.EscapeString(reason))
-		reasonText = fmt.Sprintf("\nReason: %s", reason)
+		reasonHTML = fmt.Sprintf(`
+            <dt>Reason</dt>
+            <dd>%s</dd>
+        `, html.EscapeString(reason))
+		reasonText = fmt.Sprintf("Reason: %s\n", reason)
 	}
 
 	content := fmt.Sprintf(`
-        <p>Your link has been removed by a moderator.</p>
-
-        <div class="info-box">
-            <p><span class="label">Keyword:</span> <code>%s</code></p>
-            <p><span class="label">URL:</span> %s</p>
-            <p><span class="label">Removed by:</span> %s</p>
+        <p>Your link has been removed from the system.</p>
+        <dl class="link-details">
+            <dt>Keyword</dt>
+            <dd><strong>%s</strong></dd>
+            <dt>URL</dt>
+            <dd>%s</dd>
             %s
-        </div>
-
-        <p>If you have questions about this action, please contact a moderator.</p>
-    `,
-		html.EscapeString(link.Keyword),
+        </dl>
+        <p>If you have questions about this removal, please contact an administrator.</p>
+    `, html.EscapeString(link.Keyword),
 		html.EscapeString(link.URL),
-		html.EscapeString(deletedBy.Name),
-		reasonHTML,
-	)
+		reasonHTML)
 
 	htmlBody = t.baseHTML(subject, content)
 
-	textBody = fmt.Sprintf(`Your link has been removed
+	textBody = fmt.Sprintf(`Link Removed
+
+Your link has been removed from the system.
 
 Keyword: %s
 URL: %s
-Removed by: %s%s
-
-If you have questions about this action, please contact a moderator.
+%s
+If you have questions about this removal, please contact an administrator.
 
 --
 %s
-%s`,
-		link.Keyword,
-		link.URL,
-		deletedBy.Name,
-		reasonText,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, link.Keyword, link.URL, reasonText, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
 }
 
-// HealthCheckFailed generates email for moderators when health checks fail.
+// HealthCheckFailed generates an email for moderators when a link's health check fails.
 func (t *Templates) HealthCheckFailed(links []models.Link) (subject, htmlBody, textBody string) {
 	count := len(links)
-	subject = fmt.Sprintf("[%s] %d link(s) failed health check", t.cfg.SiteTitle, count)
+	subject = fmt.Sprintf("[%s] %d link(s) failing health checks", t.cfg.SiteTitle, count)
 
-	var linksHTML strings.Builder
-	var linksText strings.Builder
+	var linkListHTML strings.Builder
+	var linkListText strings.Builder
 
 	for _, link := range links {
-		errorMsg := "Unknown error"
+		errMsg := "Unknown error"
 		if link.HealthError != nil {
-			errorMsg = *link.HealthError
+			errMsg = *link.HealthError
 		}
 
-		linksHTML.WriteString(fmt.Sprintf(`
-            <div class="info-box">
-                <p><span class="label">Keyword:</span> <code>%s</code></p>
-                <p><span class="label">URL:</span> <a href="%s">%s</a></p>
-                <p><span class="label">Error:</span> <span class="error">%s</span></p>
+		linkListHTML.WriteString(fmt.Sprintf(`
+            <div class="link-details">
+                <dt>Keyword</dt>
+                <dd><strong>%s</strong></dd>
+                <dt>URL</dt>
+                <dd><a href="%s">%s</a></dd>
+                <dt>Error</dt>
+                <dd class="status-rejected">%s</dd>
             </div>
-        `,
-			html.EscapeString(link.Keyword),
+        `, html.EscapeString(link.Keyword),
 			html.EscapeString(link.URL),
 			html.EscapeString(link.URL),
-			html.EscapeString(errorMsg),
-		))
+			html.EscapeString(errMsg)))
 
-		linksText.WriteString(fmt.Sprintf("\n- %s: %s\n  Error: %s\n",
-			link.Keyword,
-			link.URL,
-			errorMsg,
-		))
+		linkListText.WriteString(fmt.Sprintf("- %s (%s): %s\n", link.Keyword, link.URL, errMsg))
 	}
 
 	content := fmt.Sprintf(`
-        <p>The following %d link(s) failed their health check and may be broken:</p>
+        <div class="warning">
+            <strong>⚠️ Health Check Alert</strong>
+        </div>
+        <p>The following %d link(s) are currently failing health checks:</p>
         %s
-        <p style="text-align: center;">
-            <a href="%s/manage?filter=unhealthy" class="button">Review Unhealthy Links</a>
+        <p>
+            <a href="%s/manage?filter=unhealthy" class="button">View Unhealthy Links</a>
         </p>
-    `,
-		count,
-		linksHTML.String(),
-		t.cfg.BaseURL,
-	)
+    `, count, linkListHTML.String(), t.cfg.BaseURL)
 
 	htmlBody = t.baseHTML(subject, content)
 
 	textBody = fmt.Sprintf(`Health Check Alert
 
-%d link(s) failed their health check:
+The following %d link(s) are currently failing health checks:
+
 %s
-Review at: %s/manage?filter=unhealthy
+View unhealthy links at: %s/manage?filter=unhealthy
 
 --
 %s
-%s`,
-		count,
-		linksText.String(),
-		t.cfg.BaseURL,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, count, linkListText.String(), t.cfg.BaseURL, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
 }
 
-// WeeklyDigest generates a weekly summary email for moderators.
-func (t *Templates) WeeklyDigest(stats DigestStats) (subject, htmlBody, textBody string) {
-	subject = fmt.Sprintf("[%s] Weekly Digest", t.cfg.SiteTitle)
+// WelcomeUser generates a welcome email for new users.
+func (t *Templates) WelcomeUser(user *models.User) (subject, htmlBody, textBody string) {
+	subject = fmt.Sprintf("Welcome to %s!", t.cfg.SiteTitle)
 
 	content := fmt.Sprintf(`
-        <p>Here's your weekly summary:</p>
-
-        <div class="info-box">
-            <p><span class="label">New links created:</span> %d</p>
-            <p><span class="label">Links pending review:</span> %d</p>
-            <p><span class="label">Links approved:</span> %d</p>
-            <p><span class="label">Links rejected:</span> %d</p>
-            <p><span class="label">Total clicks this week:</span> %d</p>
-            <p><span class="label">Unhealthy links:</span> %d</p>
-        </div>
-
-        <p style="text-align: center;">
-            <a href="%s" class="button">Go to Dashboard</a>
+        <p>Hi %s,</p>
+        <p>Welcome to %s! Your account has been created successfully.</p>
+        <p>You can now:</p>
+        <ul>
+            <li>Create short links for quick access to your favorite URLs</li>
+            <li>Search existing links to find what you need</li>
+            <li>Manage your personal link collection</li>
+        </ul>
+        <p>
+            <a href="%s" class="button">Get Started</a>
         </p>
-    `,
-		stats.NewLinks,
-		stats.PendingReview,
-		stats.Approved,
-		stats.Rejected,
-		stats.TotalClicks,
-		stats.UnhealthyLinks,
-		t.cfg.BaseURL,
-	)
+    `, html.EscapeString(user.Name), html.EscapeString(t.cfg.SiteTitle), t.cfg.BaseURL)
 
 	htmlBody = t.baseHTML(subject, content)
 
-	textBody = fmt.Sprintf(`Weekly Digest
+	textBody = fmt.Sprintf(`Welcome to %s!
 
-New links created: %d
-Links pending review: %d
-Links approved: %d
-Links rejected: %d
-Total clicks this week: %d
-Unhealthy links: %d
+Hi %s,
 
-Dashboard: %s
+Welcome to %s! Your account has been created successfully.
+
+You can now:
+- Create short links for quick access to your favorite URLs
+- Search existing links to find what you need
+- Manage your personal link collection
+
+Get started at: %s
 
 --
 %s
-%s`,
-		stats.NewLinks,
-		stats.PendingReview,
-		stats.Approved,
-		stats.Rejected,
-		stats.TotalClicks,
-		stats.UnhealthyLinks,
-		t.cfg.BaseURL,
-		t.cfg.SiteTitle,
-		t.cfg.BaseURL,
-	)
+%s
+`, t.cfg.SiteTitle, user.Name, t.cfg.SiteTitle, t.cfg.BaseURL, t.cfg.SiteTitle, t.cfg.BaseURL)
 
 	return
-}
-
-// DigestStats holds statistics for weekly digest emails.
-type DigestStats struct {
-	NewLinks       int
-	PendingReview  int
-	Approved       int
-	Rejected       int
-	TotalClicks    int
-	UnhealthyLinks int
 }

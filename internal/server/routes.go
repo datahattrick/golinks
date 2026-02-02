@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"golinks/internal/db"
+	"golinks/internal/email"
 	"golinks/internal/handlers"
 	"golinks/internal/middleware"
 )
@@ -14,12 +15,16 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(database, s.Cfg)
 
+	// Initialize email notifier
+	notifier := email.NewNotifier(s.Cfg, database)
+	handlers.SetNotifier(notifier)
+
 	// Initialize handlers
 	linkHandler := handlers.NewLinkHandler(database, s.Cfg)
 	redirectHandler := handlers.NewRedirectHandler(database, s.Cfg)
 	profileHandler := handlers.NewProfileHandler(database, s.Cfg)
 	userLinkHandler := handlers.NewUserLinkHandler(database, s.Cfg)
-	moderationHandler := handlers.NewModerationHandler(database, s.Cfg)
+	moderationHandler := handlers.NewModerationHandler(database, s.Cfg, notifier)
 	manageHandler := handlers.NewManageHandler(database, s.Cfg)
 	healthHandler := handlers.NewHealthHandler(database)
 	userHandler := handlers.NewUserHandler(database, s.Cfg)
