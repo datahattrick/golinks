@@ -1,0 +1,7 @@
+apiVersion: v2
+name: golinks
+description: A URL shortener service built with Go Fiber, PostgreSQL, and OIDC authentication
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.19.0-0"

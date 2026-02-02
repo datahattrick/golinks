@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "golinks.fullname" . }}
+  labels:
+    {{- include "golinks.labels" . | nindent 4 }}
+data:
+  SERVER_ADDR: {{ .Values.config.serverAddr | quote }}
+  BASE_URL: {{ .Values.config.baseURL | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  SITE_TITLE: {{ .Values.config.siteTitle | quote }}
+  SITE_TAGLINE: {{ .Values.config.siteTagline | quote }}
+  SITE_FOOTER: {{ .Values.config.siteFooter | quote }}
+  SITE_LOGO_URL: {{ .Values.config.siteLogoURL | quote }}
+  ENABLE_RANDOM_KEYWORDS: {{ .Values.config.enableRandomKeywords | quote }}
+  ENABLE_PERSONAL_LINKS: {{ .Values.config.enablePersonalLinks | quote }}
+  ENABLE_ORG_LINKS: {{ .Values.config.enableOrgLinks | quote }}
+  HEALTH_CHECK_INTERVAL: {{ .Values.config.healthCheckInterval | quote }}
+  HEALTH_CHECK_MAX_AGE: {{ .Values.config.healthCheckMaxAge | quote }}
+  {{- if .Values.oidc.issuer }}
+  OIDC_ISSUER: {{ .Values.oidc.issuer | quote }}
+  OIDC_CLIENT_ID: {{ .Values.oidc.clientId | quote }}
+  OIDC_REDIRECT_URL: {{ .Values.oidc.redirectURL | quote }}
+  OIDC_SCOPES: {{ .Values.oidc.scopes | quote }}
+  {{- if .Values.oidc.orgClaim }}
+  OIDC_ORG_CLAIM: {{ .Values.oidc.orgClaim | quote }}
+  {{- end }}
+  {{- if .Values.oidc.adminUsers }}
+  ADMIN_USERS: {{ .Values.oidc.adminUsers | quote }}
+  {{- end }}
+  {{- if .Values.oidc.globalMods }}
+  GLOBAL_MODS: {{ .Values.oidc.globalMods | quote }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.tls.enabled }}
+  TLS_ENABLED: "true"
+  {{- if .Values.tls.certFile }}
+  TLS_CERT_FILE: {{ .Values.tls.certFile | quote }}
+  TLS_KEY_FILE: {{ .Values.tls.keyFile | quote }}
+  {{- if .Values.tls.caFile }}
+  TLS_CA_FILE: {{ .Values.tls.caFile | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.smtp.enabled }}
+  SMTP_ENABLED: "true"
+  SMTP_HOST: {{ .Values.smtp.host | quote }}
+  SMTP_PORT: {{ .Values.smtp.port | quote }}
+  {{- if .Values.smtp.username }}
+  SMTP_USERNAME: {{ .Values.smtp.username | quote }}
+  {{- end }}
+  SMTP_FROM: {{ .Values.smtp.from | quote }}
+  SMTP_FROM_NAME: {{ .Values.smtp.fromName | quote }}
+  SMTP_TLS: {{ .Values.smtp.tls | quote }}
+  EMAIL_NOTIFY_MODS_ON_SUBMIT: {{ .Values.emailNotifications.notifyModsOnSubmit | quote }}
+  EMAIL_NOTIFY_USER_ON_APPROVAL: {{ .Values.emailNotifications.notifyUserOnApproval | quote }}
+  EMAIL_NOTIFY_USER_ON_REJECTION: {{ .Values.emailNotifications.notifyUserOnRejection | quote }}
+  EMAIL_NOTIFY_USER_ON_DELETION: {{ .Values.emailNotifications.notifyUserOnDeletion | quote }}
+  EMAIL_NOTIFY_MODS_ON_HEALTH_FAILURE: {{ .Values.emailNotifications.notifyModsOnHealthFailure | quote }}
+  {{- end }}
