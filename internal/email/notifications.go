@@ -4,57 +4,56 @@ import (
 	"context"
 	"log"
 
-	"github.com/google/uuid"
-
 	"golinks/internal/config"
+	"golinks/internal/db"
 	"golinks/internal/models"
 )
 
-// ModeratorEmailGetter is an interface for getting moderator emails.
-type ModeratorEmailGetter interface {
-	GetModeratorEmails(ctx context.Context, scope string, orgID *string) ([]string, error)
-	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
-}
-
-// Notifier sends email notifications for various events.
+// Notifier handles sending email notifications for various events.
 type Notifier struct {
 	service   *Service
 	templates *Templates
+	db        *db.DB
 	cfg       *config.Config
-	db        ModeratorEmailGetter
 }
 
 // NewNotifier creates a new email notifier.
-func NewNotifier(cfg *config.Config, db ModeratorEmailGetter) *Notifier {
+func NewNotifier(cfg *config.Config, database *db.DB) *Notifier {
 	return &Notifier{
 		service:   NewService(cfg),
 		templates: NewTemplates(cfg),
+		db:        database,
 		cfg:       cfg,
-		db:        db,
 	}
 }
 
-// NotifyLinkSubmitted notifies moderators that a new link needs review.
-func (n *Notifier) NotifyLinkSubmitted(ctx context.Context, link *models.Link, submitter *models.User) {
+// NotifyModeratorsLinkSubmitted notifies moderators when a new link is submitted for review.
+func (n *Notifier) NotifyModeratorsLinkSubmitted(ctx context.Context, link *models.Link, submitter *models.User) {
 	if !n.service.IsEnabled() || !n.cfg.EmailNotifyModeratorsOnSubmit {
 		return
 	}
 
 	// Get moderator emails based on link scope
-	var orgID *string
-	if link.OrganizationID != nil {
-		id := link.OrganizationID.String()
-		orgID = &id
+	var emails []string
+	var err error
+
+	if link.Scope == models.ScopeGlobal {
+		// Global links: notify global mods and admins
+		emails, err = n.db.GetGlobalModeratorEmails(ctx)
+	} else if link.Scope == models.ScopeOrg && link.OrganizationID != nil {
+		// Org links: notify org mods, global mods, and admins
+		emails, err = n.db.GetOrgModeratorEmails(ctx, *link.OrganizationID)
+	} else {
+		// Personal links don't need moderation
+		return
 	}
 
-	emails, err := n.db.GetModeratorEmails(ctx, link.Scope, orgID)
 	if err != nil {
 		log.Printf("Failed to get moderator emails: %v", err)
 		return
 	}
 
 	if len(emails) == 0 {
-		log.Println("No moderator emails found for notification")
 		return
 	}
 
@@ -62,12 +61,13 @@ func (n *Notifier) NotifyLinkSubmitted(ctx context.Context, link *models.Link, s
 	n.service.SendAsync(emails, subject, htmlBody, textBody)
 }
 
-// NotifyLinkApproved notifies the link creator that their link was approved.
-func (n *Notifier) NotifyLinkApproved(ctx context.Context, link *models.Link, approver *models.User) {
+// NotifyUserLinkApproved notifies a user when their link is approved.
+func (n *Notifier) NotifyUserLinkApproved(ctx context.Context, link *models.Link, approver *models.User) {
 	if !n.service.IsEnabled() || !n.cfg.EmailNotifyUserOnApproval {
 		return
 	}
 
+	// Get the link creator's email
 	if link.CreatedBy == nil {
 		return
 	}
@@ -86,12 +86,13 @@ func (n *Notifier) NotifyLinkApproved(ctx context.Context, link *models.Link, ap
 	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
 }
 
-// NotifyLinkRejected notifies the link creator that their link was rejected.
-func (n *Notifier) NotifyLinkRejected(ctx context.Context, link *models.Link, rejector *models.User, reason string) {
+// NotifyUserLinkRejected notifies a user when their link is rejected.
+func (n *Notifier) NotifyUserLinkRejected(ctx context.Context, link *models.Link, reason string) {
 	if !n.service.IsEnabled() || !n.cfg.EmailNotifyUserOnRejection {
 		return
 	}
 
+	// Get the link creator's email
 	if link.CreatedBy == nil {
 		return
 	}
@@ -106,16 +107,17 @@ func (n *Notifier) NotifyLinkRejected(ctx context.Context, link *models.Link, re
 		return
 	}
 
-	subject, htmlBody, textBody := n.templates.LinkRejected(link, rejector, reason)
+	subject, htmlBody, textBody := n.templates.LinkRejected(link, reason)
 	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
 }
 
-// NotifyLinkDeleted notifies the link creator that their link was deleted.
-func (n *Notifier) NotifyLinkDeleted(ctx context.Context, link *models.Link, deletedBy *models.User, reason string) {
+// NotifyUserLinkDeleted notifies a user when their link is deleted.
+func (n *Notifier) NotifyUserLinkDeleted(ctx context.Context, link *models.Link, reason string) {
 	if !n.service.IsEnabled() || !n.cfg.EmailNotifyUserOnDeletion {
 		return
 	}
 
+	// Get the link creator's email
 	if link.CreatedBy == nil {
 		return
 	}
@@ -130,12 +132,12 @@ func (n *Notifier) NotifyLinkDeleted(ctx context.Context, link *models.Link, del
 		return
 	}
 
-	subject, htmlBody, textBody := n.templates.LinkDeleted(link, deletedBy, reason)
+	subject, htmlBody, textBody := n.templates.LinkDeleted(link, reason)
 	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
 }
 
-// NotifyHealthCheckFailures notifies moderators about failed health checks.
-func (n *Notifier) NotifyHealthCheckFailures(ctx context.Context, links []models.Link) {
+// NotifyModeratorsHealthChecksFailed notifies moderators about failing health checks.
+func (n *Notifier) NotifyModeratorsHealthChecksFailed(ctx context.Context, links []models.Link) {
 	if !n.service.IsEnabled() || !n.cfg.EmailNotifyModsOnHealthFailure {
 		return
 	}
@@ -144,10 +146,10 @@ func (n *Notifier) NotifyHealthCheckFailures(ctx context.Context, links []models
 		return
 	}
 
-	// Get all global moderators and admins for health notifications
-	emails, err := n.db.GetModeratorEmails(ctx, models.ScopeGlobal, nil)
+	// Get global moderator emails
+	emails, err := n.db.GetGlobalModeratorEmails(ctx)
 	if err != nil {
-		log.Printf("Failed to get moderator emails for health notification: %v", err)
+		log.Printf("Failed to get moderator emails: %v", err)
 		return
 	}
 
@@ -157,4 +159,18 @@ func (n *Notifier) NotifyHealthCheckFailures(ctx context.Context, links []models
 
 	subject, htmlBody, textBody := n.templates.HealthCheckFailed(links)
 	n.service.SendAsync(emails, subject, htmlBody, textBody)
+}
+
+// NotifyWelcome sends a welcome email to a new user.
+func (n *Notifier) NotifyWelcome(ctx context.Context, user *models.User) {
+	if !n.service.IsEnabled() {
+		return
+	}
+
+	if user.Email == "" {
+		return
+	}
+
+	subject, htmlBody, textBody := n.templates.WelcomeUser(user)
+	n.service.SendAsync([]string{user.Email}, subject, htmlBody, textBody)
 }

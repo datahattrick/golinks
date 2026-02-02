@@ -285,7 +285,7 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 
 	// Send email notification to moderators
 	if Notifier != nil {
-		go Notifier.NotifyLinkSubmitted(c.Context(), link, user)
+		go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
 	}
 
 	return c.Render("partials/form_success", fiber.Map{
@@ -331,7 +331,7 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 
 	// Send email notification to moderators
 	if Notifier != nil {
-		go Notifier.NotifyLinkSubmitted(c.Context(), link, user)
+		go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
 	}
 
 	return c.Render("partials/form_success", fiber.Map{

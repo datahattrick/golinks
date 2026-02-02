@@ -8,18 +8,20 @@ import (
 
 	"golinks/internal/config"
 	"golinks/internal/db"
+	"golinks/internal/email"
 	"golinks/internal/models"
 )
 
 // ModerationHandler handles link moderation operations.
 type ModerationHandler struct {
-	db  *db.DB
-	cfg *config.Config
+	db       *db.DB
+	cfg      *config.Config
+	notifier *email.Notifier
 }
 
 // NewModerationHandler creates a new moderation handler.
-func NewModerationHandler(database *db.DB, cfg *config.Config) *ModerationHandler {
-	return &ModerationHandler{db: database, cfg: cfg}
+func NewModerationHandler(database *db.DB, cfg *config.Config, notifier *email.Notifier) *ModerationHandler {
+	return &ModerationHandler{db: database, cfg: cfg, notifier: notifier}
 }
 
 // Index renders the moderation dashboard.
@@ -108,10 +110,8 @@ func (h *ModerationHandler) Approve(c fiber.Ctx) error {
 		return err
 	}
 
-	// Send email notification to submitter
-	if Notifier != nil {
-		go Notifier.NotifyLinkApproved(c.Context(), link, user)
-	}
+	// Send email notification to the link creator
+	h.notifier.NotifyUserLinkApproved(c.Context(), link, user)
 
 	// Return success message for HTMX
 	return c.Render("partials/moderation_success", fiber.Map{
@@ -154,11 +154,9 @@ func (h *ModerationHandler) Reject(c fiber.Ctx) error {
 		return err
 	}
 
-	// Send email notification to submitter
+	// Send email notification to the link creator
 	reason := c.FormValue("reason") // Optional rejection reason
-	if Notifier != nil {
-		go Notifier.NotifyLinkRejected(c.Context(), link, user, reason)
-	}
+	h.notifier.NotifyUserLinkRejected(c.Context(), link, reason)
 
 	// Return success message for HTMX
 	return c.Render("partials/moderation_success", fiber.Map{

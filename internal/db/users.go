@@ -205,34 +205,45 @@ func (d *DB) GetUserCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
-// GetModeratorEmails returns email addresses for moderators who should be notified.
-// For global scope: returns admins and global mods.
-// For org scope: returns admins, global mods, and org mods for that org.
-func (d *DB) GetModeratorEmails(ctx context.Context, scope string, orgID *string) ([]string, error) {
-	var query string
-	var args []any
+// GetGlobalModeratorEmails returns email addresses for global moderators (admins and global mods).
+func (d *DB) GetGlobalModeratorEmails(ctx context.Context) ([]string, error) {
+	query := `
+		SELECT DISTINCT email FROM users
+		WHERE email != '' AND email IS NOT NULL
+		AND role IN ('admin', 'global_mod')
+	`
 
-	if scope == "org" && orgID != nil {
-		// For org-scoped links, include org mods for that org
-		query = `
-			SELECT DISTINCT email FROM users
-			WHERE email != '' AND email IS NOT NULL
-			AND (
-				role IN ('admin', 'global_mod')
-				OR (role = 'org_mod' AND organization_id = $1)
-			)
-		`
-		args = []any{*orgID}
-	} else {
-		// For global links, only admins and global mods
-		query = `
-			SELECT DISTINCT email FROM users
-			WHERE email != '' AND email IS NOT NULL
-			AND role IN ('admin', 'global_mod')
-		`
+	rows, err := d.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var emails []string
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, err
+		}
+		emails = append(emails, email)
 	}
 
-	rows, err := d.Pool.Query(ctx, query, args...)
+	return emails, rows.Err()
+}
+
+// GetOrgModeratorEmails returns email addresses for moderators of a specific organization.
+// Includes admins, global mods, and org mods for that org.
+func (d *DB) GetOrgModeratorEmails(ctx context.Context, orgID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT DISTINCT email FROM users
+		WHERE email != '' AND email IS NOT NULL
+		AND (
+			role IN ('admin', 'global_mod')
+			OR (role = 'org_mod' AND organization_id = $1)
+		)
+	`
+
+	rows, err := d.Pool.Query(ctx, query, orgID)
 	if err != nil {
 		return nil, err
 	}
