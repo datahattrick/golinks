@@ -10,6 +10,8 @@ import (
 
 	"golinks/internal/config"
 	"golinks/internal/db"
+	"golinks/internal/email"
+	"golinks/internal/handlers"
 	"golinks/internal/jobs"
 	"golinks/internal/server"
 )
@@ -48,6 +50,10 @@ func main() {
 			log.Println("Development seed links loaded")
 		}
 	}
+
+	// Initialize email notifier
+	notifier := email.NewNotifier(cfg, database)
+	handlers.SetNotifier(notifier)
 
 	// Create server
 	srv := server.New(cfg)
