@@ -67,23 +67,27 @@ func (n *Notifier) NotifyUserLinkApproved(ctx context.Context, link *models.Link
 		return
 	}
 
-	// Get the link creator's email
-	if link.CreatedBy == nil {
+	// Get the link submitter's email (SubmittedBy is set when pending, CreatedBy after approval)
+	submitterID := link.SubmittedBy
+	if submitterID == nil {
+		submitterID = link.CreatedBy
+	}
+	if submitterID == nil {
 		return
 	}
 
-	creator, err := n.db.GetUserByID(ctx, *link.CreatedBy)
+	submitter, err := n.db.GetUserByID(ctx, *submitterID)
 	if err != nil {
-		log.Printf("Failed to get link creator: %v", err)
+		log.Printf("Failed to get link submitter: %v", err)
 		return
 	}
 
-	if creator.Email == "" {
+	if submitter.Email == "" {
 		return
 	}
 
 	subject, htmlBody, textBody := n.templates.LinkApproved(link, approver)
-	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
+	n.service.SendAsync([]string{submitter.Email}, subject, htmlBody, textBody)
 }
 
 // NotifyUserLinkRejected notifies a user when their link is rejected.
@@ -92,23 +96,27 @@ func (n *Notifier) NotifyUserLinkRejected(ctx context.Context, link *models.Link
 		return
 	}
 
-	// Get the link creator's email
-	if link.CreatedBy == nil {
+	// Get the link submitter's email (SubmittedBy is set when pending)
+	submitterID := link.SubmittedBy
+	if submitterID == nil {
+		submitterID = link.CreatedBy
+	}
+	if submitterID == nil {
 		return
 	}
 
-	creator, err := n.db.GetUserByID(ctx, *link.CreatedBy)
+	submitter, err := n.db.GetUserByID(ctx, *submitterID)
 	if err != nil {
-		log.Printf("Failed to get link creator: %v", err)
+		log.Printf("Failed to get link submitter: %v", err)
 		return
 	}
 
-	if creator.Email == "" {
+	if submitter.Email == "" {
 		return
 	}
 
 	subject, htmlBody, textBody := n.templates.LinkRejected(link, reason)
-	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
+	n.service.SendAsync([]string{submitter.Email}, subject, htmlBody, textBody)
 }
 
 // NotifyUserLinkDeleted notifies a user when their link is deleted.
@@ -117,23 +125,27 @@ func (n *Notifier) NotifyUserLinkDeleted(ctx context.Context, link *models.Link,
 		return
 	}
 
-	// Get the link creator's email
-	if link.CreatedBy == nil {
+	// Get the link owner's email (CreatedBy for approved links, SubmittedBy for pending)
+	ownerID := link.CreatedBy
+	if ownerID == nil {
+		ownerID = link.SubmittedBy
+	}
+	if ownerID == nil {
 		return
 	}
 
-	creator, err := n.db.GetUserByID(ctx, *link.CreatedBy)
+	owner, err := n.db.GetUserByID(ctx, *ownerID)
 	if err != nil {
-		log.Printf("Failed to get link creator: %v", err)
+		log.Printf("Failed to get link owner: %v", err)
 		return
 	}
 
-	if creator.Email == "" {
+	if owner.Email == "" {
 		return
 	}
 
 	subject, htmlBody, textBody := n.templates.LinkDeleted(link, reason)
-	n.service.SendAsync([]string{creator.Email}, subject, htmlBody, textBody)
+	n.service.SendAsync([]string{owner.Email}, subject, htmlBody, textBody)
 }
 
 // NotifyModeratorsHealthChecksFailed notifies moderators about failing health checks.
