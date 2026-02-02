@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -52,6 +53,23 @@ type Config struct {
 	SiteTagline string // env: SITE_TAGLINE, default: "Fast URL shortcuts for your team"
 	SiteFooter  string // env: SITE_FOOTER, default: "GoLinks - Fast URL shortcuts for your team"
 	SiteLogoURL string // env: SITE_LOGO_URL, default: "" (no logo, text only)
+
+	// SMTP Email Configuration
+	SMTPEnabled  bool   // Enable email notifications
+	SMTPHost     string // SMTP server hostname
+	SMTPPort     int    // SMTP server port (25, 465, 587)
+	SMTPUsername string // SMTP authentication username
+	SMTPPassword string // SMTP authentication password
+	SMTPFrom     string // From email address
+	SMTPFromName string // From display name
+	SMTPTLS      string // TLS mode: "none", "starttls", "tls"
+
+	// Email Notification Settings
+	EmailNotifyModeratorsOnSubmit  bool // Notify moderators when a link is submitted for review
+	EmailNotifyUserOnApproval      bool // Notify user when their link is approved
+	EmailNotifyUserOnRejection     bool // Notify user when their link is rejected
+	EmailNotifyUserOnDeletion      bool // Notify user when their link is deleted
+	EmailNotifyModsOnHealthFailure bool // Notify moderators when health checks fail
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -82,12 +100,38 @@ func Load() *Config {
 		SiteTagline: getEnv("SITE_TAGLINE", "Fast URL shortcuts for your team"),
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
+
+		// SMTP Configuration
+		SMTPEnabled:  getEnv("SMTP_ENABLED", "") != "",
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPPort:     getEnvInt("SMTP_PORT", 587),
+		SMTPUsername: getEnv("SMTP_USERNAME", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", ""),
+		SMTPFromName: getEnv("SMTP_FROM_NAME", "GoLinks"),
+		SMTPTLS:      getEnv("SMTP_TLS", "starttls"), // none, starttls, tls
+
+		// Email Notification Settings (all enabled by default when SMTP is configured)
+		EmailNotifyModeratorsOnSubmit:  getEnv("EMAIL_NOTIFY_MODS_ON_SUBMIT", "true") != "false",
+		EmailNotifyUserOnApproval:      getEnv("EMAIL_NOTIFY_USER_ON_APPROVAL", "true") != "false",
+		EmailNotifyUserOnRejection:     getEnv("EMAIL_NOTIFY_USER_ON_REJECTION", "true") != "false",
+		EmailNotifyUserOnDeletion:      getEnv("EMAIL_NOTIFY_USER_ON_DELETION", "true") != "false",
+		EmailNotifyModsOnHealthFailure: getEnv("EMAIL_NOTIFY_MODS_ON_HEALTH_FAILURE", "true") != "false",
 	}
 }
 
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
 	}
 	return fallback
 }
@@ -106,6 +150,11 @@ func (c *Config) IsMTLSEnabled() bool {
 // In simple mode, only global links are used and the redirect API doesn't require authentication.
 func (c *Config) IsSimpleMode() bool {
 	return !c.EnablePersonalLinks && !c.EnableOrgLinks
+}
+
+// IsEmailEnabled returns true if SMTP is configured and enabled.
+func (c *Config) IsEmailEnabled() bool {
+	return c.SMTPEnabled && c.SMTPHost != "" && c.SMTPFrom != ""
 }
 
 // parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"

@@ -283,6 +283,11 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		return err
 	}
 
+	// Send email notification to moderators
+	if Notifier != nil {
+		go Notifier.NotifyLinkSubmitted(c.Context(), link, user)
+	}
+
 	return c.Render("partials/form_success", fiber.Map{
 		"Keyword": keyword,
 		"Message": "Organization link submitted for approval. A moderator will review it shortly.",
@@ -322,6 +327,11 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 			return htmxError(c, "A global link with this keyword already exists or is pending approval")
 		}
 		return err
+	}
+
+	// Send email notification to moderators
+	if Notifier != nil {
+		go Notifier.NotifyLinkSubmitted(c.Context(), link, user)
 	}
 
 	return c.Render("partials/form_success", fiber.Map{

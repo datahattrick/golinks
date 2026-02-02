@@ -108,6 +108,11 @@ func (h *ModerationHandler) Approve(c fiber.Ctx) error {
 		return err
 	}
 
+	// Send email notification to submitter
+	if Notifier != nil {
+		go Notifier.NotifyLinkApproved(c.Context(), link, user)
+	}
+
 	// Return success message for HTMX
 	return c.Render("partials/moderation_success", fiber.Map{
 		"Action":  "approved",
@@ -147,6 +152,12 @@ func (h *ModerationHandler) Reject(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "link not found or already processed")
 		}
 		return err
+	}
+
+	// Send email notification to submitter
+	reason := c.FormValue("reason") // Optional rejection reason
+	if Notifier != nil {
+		go Notifier.NotifyLinkRejected(c.Context(), link, user, reason)
 	}
 
 	// Return success message for HTMX
