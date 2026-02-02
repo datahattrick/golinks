@@ -1,0 +1,49 @@
+GoLinks has been deployed!
+
+{{- if .Values.route.enabled }}
+
+OpenShift Route:
+{{- if .Values.route.host }}
+  URL: https://{{ .Values.route.host }}{{ .Values.route.path }}
+{{- else }}
+  Run: oc get route {{ include "golinks.fullname" . }} -o jsonpath='{.spec.host}'
+{{- end }}
+
+{{- else if .Values.ingress.enabled }}
+
+Ingress:
+{{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ (index $host.paths 0).path }}
+{{- end }}
+
+{{- else }}
+
+Service: {{ include "golinks.fullname" . }}
+Port: {{ .Values.service.port }}
+
+To access the application, run:
+  kubectl port-forward svc/{{ include "golinks.fullname" . }} 3000:{{ .Values.service.port }}
+
+Then visit: http://localhost:3000
+
+{{- end }}
+
+Configuration:
+  - Environment: {{ .Values.config.environment }}
+  - Personal Links: {{ .Values.config.enablePersonalLinks }}
+  - Org Links: {{ .Values.config.enableOrgLinks }}
+  - Random Keywords: {{ .Values.config.enableRandomKeywords }}
+
+{{- if not .Values.existingSecret }}
+
+WARNING: You must create a secret with SESSION_SECRET and other sensitive values.
+Example:
+  kubectl create secret generic golinks-secret \
+    --from-literal=SESSION_SECRET=$(openssl rand -base64 32) \
+    --from-literal=OIDC_CLIENT_SECRET=your-client-secret \
+    --from-literal=DATABASE_URL=postgres://user:pass@host:5432/golinks?sslmode=require
+
+Then update your values with:
+  existingSecret: golinks-secret
+
+{{- end }}

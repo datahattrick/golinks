@@ -1,0 +1,164 @@
+replicaCount: 1
+
+image:
+  repository: golinks
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+# OpenShift compatible security context
+# Does not set runAsUser to allow OpenShift to assign arbitrary UID
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 3000
+
+# OpenShift Route configuration
+route:
+  enabled: true
+  host: ""
+  path: /
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  annotations: {}
+
+# Kubernetes Ingress (alternative to Route)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: golinks.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Application configuration
+config:
+  serverAddr: ":3000"
+  baseURL: "https://go.example.com"
+  environment: "production"
+
+  # Site branding
+  siteTitle: "GoLinks"
+  siteTagline: "Quick links for your organization"
+  siteFooter: ""
+  siteLogoURL: ""
+
+  # Features
+  enableRandomKeywords: false
+  enablePersonalLinks: true
+  enableOrgLinks: true
+
+  # Health check settings
+  healthCheckInterval: "1h"
+  healthCheckMaxAge: "24h"
+
+# OIDC configuration
+oidc:
+  issuer: ""
+  clientId: ""
+  # clientSecret should be provided via existingSecret
+  redirectURL: ""
+  scopes: "openid profile email"
+  orgClaim: ""
+  adminUsers: ""
+  globalMods: ""
+
+# Database configuration
+database:
+  # Use external database
+  external:
+    enabled: true
+    host: ""
+    port: 5432
+    name: "golinks"
+    user: "golinks"
+    sslMode: "require"
+
+  # Or use existing secret for DATABASE_URL
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+# TLS configuration (for mTLS)
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  existingSecret: ""
+
+# Existing secret for sensitive values
+existingSecret: ""
+# Keys expected in existingSecret:
+#   SESSION_SECRET
+#   OIDC_CLIENT_SECRET
+#   DATABASE_URL (optional, if database.existingSecret not set)
+
+# SMTP Email Configuration
+smtp:
+  enabled: false
+  host: ""
+  port: 587
+  username: ""
+  # password should be provided via existingSecret
+  from: ""
+  fromName: "GoLinks"
+  tls: "starttls"  # none, starttls, tls
+
+# Email Notification Settings
+emailNotifications:
+  notifyModsOnSubmit: true
+  notifyUserOnApproval: true
+  notifyUserOnRejection: true
+  notifyUserOnDeletion: true
+  notifyModsOnHealthFailure: true
+
+# Extra environment variables
+extraEnv: []
+
+# Extra volumes and volume mounts
+extraVolumes: []
+extraVolumeMounts: []
