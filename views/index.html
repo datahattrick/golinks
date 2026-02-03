@@ -46,12 +46,15 @@
                 </svg>
                 Top Used
             </h3>
-            <ul class="space-y-2">
+            <ul class="space-y-1">
                 {{range .TopUsedLinks}}
                 <li>
                     <a href="/go/{{.Keyword}}" class="flex items-center justify-between p-2 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors group">
                         <span class="font-mono text-sm text-brand-600 dark:text-brand-400 group-hover:underline">{{.Keyword}}</span>
-                        <span class="text-xs text-gray-400">{{.ClickCount}} clicks</span>
+                        <div class="flex items-center gap-2">
+                            <span class="sparkline text-brand-400 dark:text-brand-300" data-clicks="{{.SparklineData}}"></span>
+                            <span class="text-xs text-gray-400 font-mono w-10 text-right">{{.ClickCount}}</span>
+                        </div>
                     </a>
                 </li>
                 {{end}}
@@ -156,4 +159,32 @@
             document.getElementById('suggestions').innerHTML = '';
         }
     });
+
+    // Sparkline renderer for Top Used click graphs
+    (function() {
+        function draw(el) {
+            var data = el.dataset.clicks.split(',').map(Number);
+            if (!data.length) return;
+            var w = 64, h = 18, pad = 2;
+            var max = Math.max.apply(null, data.concat([1]));
+            var pts = data.map(function(v, i) {
+                var x = pad + (i / (data.length - 1)) * (w - pad * 2);
+                var y = h - pad - (v / max) * (h - pad * 2);
+                return x.toFixed(1) + ',' + y.toFixed(1);
+            });
+            var line = pts.join(' ');
+            var area = line + ' ' + (w - pad).toFixed(1) + ',' + (h - pad).toFixed(1) + ' ' + pad.toFixed(1) + ',' + (h - pad).toFixed(1);
+            var id = 'sg' + Math.random().toString(36).slice(2, 8);
+            el.innerHTML =
+                '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" class="inline-block" style="vertical-align:middle">' +
+                '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="currentColor" stop-opacity="0.3"/>' +
+                '<stop offset="100%" stop-color="currentColor" stop-opacity="0"/>' +
+                '</linearGradient></defs>' +
+                '<polygon points="' + area + '" fill="url(#' + id + ')"/>' +
+                '<polyline points="' + line + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>';
+        }
+        document.querySelectorAll('.sparkline').forEach(draw);
+    })();
 </script>

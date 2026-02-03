@@ -1,49 +1,95 @@
-<nav class="glass-card border-b border-white/20 dark:border-gray-700/50 px-4 py-3 sticky top-0 z-50">
-    <div class="max-w-5xl mx-auto flex justify-between items-center">
-        <div class="flex items-center gap-6">
-            <a href="/" class="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-cyan-500 via-brand-500 to-teal-500 bg-clip-text text-transparent hover:from-cyan-400 hover:to-teal-400 transition-all">
-                {{if .SiteLogoURL}}<img src="{{.SiteLogoURL}}" alt="" class="h-8 w-auto">{{end}}
-                <span>{{if .SiteTitle}}{{.SiteTitle}}{{else}}GoLinks{{end}}</span>
-            </a>
-            {{if .User}}
-            <div class="hidden sm:flex items-center gap-1">
-                <a href="/browse" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">Browse</a>
-                <a href="/new" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">Create</a>
-                <a href="/my-links" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">My Links</a>
-                {{if .User.IsOrgMod}}
-                <a href="/moderation" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">Moderation</a>
-                <a href="/manage" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">Manage</a>
-                {{end}}
-                {{if .User.IsAdmin}}
-                <a href="/admin/users" class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-all">Users</a>
+<nav class="glass-card border-b border-white/20 dark:border-gray-700/50 px-4 py-2.5 sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center">
+            <!-- Left: Logo + nav links -->
+            <div class="flex items-center gap-6">
+                <!-- Logo -->
+                <a href="/" class="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-cyan-500 via-brand-500 to-teal-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity flex-shrink-0">
+                    {{if .SiteLogoURL}}<img src="{{.SiteLogoURL}}" alt="" class="h-7 w-auto">{{end}}
+                    <span>{{if .SiteTitle}}{{.SiteTitle}}{{else}}GoLinks{{end}}</span>
+                </a>
+
+                <!-- Desktop nav links -->
+                {{if .User}}
+                <div class="hidden sm:flex items-center gap-1">
+                    <a href="/browse" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/browse">Browse</a>
+                    <a href="/new" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/new">Create</a>
+                    <a href="/my-links" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/my-links">My Links</a>
+                    {{if .User.IsOrgMod}}
+                    <a href="/moderation" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/moderation">Moderation</a>
+                    <a href="/manage" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/manage">Manage</a>
+                    {{end}}
+                    {{if .User.IsAdmin}}
+                    <a href="/admin/users" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/admin/users">Users</a>
+                    {{end}}
+                </div>
                 {{end}}
             </div>
-            {{end}}
-        </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100/80 dark:hover:bg-gray-700/80 transition-all group">
-                <svg class="w-5 h-5 hidden dark:block text-amber-400 group-hover:text-amber-300 transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
-                </svg>
-                <svg class="w-5 h-5 block dark:hidden text-indigo-500 group-hover:text-indigo-600 transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
-                </svg>
-            </button>
-            {{if .User}}
-                <a href="/profile" class="flex items-center gap-2 text-sm hover:text-brand-600 dark:hover:text-brand-400 transition-colors group">
+
+            <!-- Right side actions -->
+            <div class="flex items-center gap-1">
+                <!-- Dark mode toggle -->
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/60 transition-colors">
+                    <svg class="w-5 h-5 hidden dark:block text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
+                    </svg>
+                    <svg class="w-5 h-5 block dark:hidden text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+                    </svg>
+                </button>
+
+                {{if .User}}
+                <!-- Mobile hamburger -->
+                <button onclick="toggleMobileMenu()" class="sm:hidden p-2 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/60 transition-colors" aria-label="Menu">
+                    <svg id="menu-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                    <svg id="close-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
+                <!-- User avatar -->
+                <a href="/profile" class="flex items-center gap-2 ml-1 px-2 py-1 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/60 transition-colors">
                     {{if .User.Picture}}
-                        <img src="{{.User.Picture}}" alt="" class="w-8 h-8 rounded-full ring-2 ring-transparent group-hover:ring-brand-400 transition-all">
+                    <img src="{{.User.Picture}}" alt="" class="w-7 h-7 rounded-full ring-2 ring-brand-300 dark:ring-brand-700">
                     {{else}}
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-teal-500 flex items-center justify-center text-white font-medium text-sm">
-                            {{if .User.Name}}{{slice .User.Name 0 1}}{{else}}U{{end}}
-                        </div>
+                    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-brand-400 to-teal-500 flex items-center justify-center text-white font-medium text-xs">
+                        {{if .User.Name}}{{slice .User.Name 0 1}}{{else}}U{{end}}
+                    </div>
                     {{end}}
-                    <span class="hidden sm:inline font-medium">{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Email}}{{end}}</span>
+                    <span class="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Email}}{{end}}</span>
                 </a>
-                <a href="/auth/logout" class="text-sm px-4 py-1.5 rounded-lg bg-gray-100/80 dark:bg-gray-700/80 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all font-medium">Logout</a>
-            {{else}}
-                <a href="/auth/login" class="text-sm px-4 py-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40">Login</a>
-            {{end}}
+
+                <!-- Logout icon -->
+                <a href="/auth/logout" class="p-2 rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Sign out">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </a>
+                {{else}}
+                <!-- Login button -->
+                <a href="/auth/login" class="ml-1 text-sm px-4 py-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-md shadow-brand-500/25">Login</a>
+                {{end}}
+            </div>
         </div>
+
+        <!-- Mobile nav menu -->
+        {{if .User}}
+        <div id="mobile-menu" class="hidden sm:hidden mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+            <div class="flex flex-col gap-0.5">
+                <a href="/browse" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/browse">Browse</a>
+                <a href="/new" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/new">Create</a>
+                <a href="/my-links" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/my-links">My Links</a>
+                {{if .User.IsOrgMod}}
+                <a href="/moderation" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/moderation">Moderation</a>
+                <a href="/manage" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/manage">Manage</a>
+                {{end}}
+                {{if .User.IsAdmin}}
+                <a href="/admin/users" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/admin/users">Users</a>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
     </div>
 </nav>

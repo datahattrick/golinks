@@ -50,7 +50,7 @@
             <div class="space-y-2">
                 {{if .EnablePersonalLinks}}
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="personal" checked class="text-brand-500 focus:ring-brand-500 scope-radio">
+                    <input type="radio" name="scope" value="personal" checked class="text-brand-500 focus:ring-brand-500 scope-radio" data-btn="Create Link">
                     <div>
                         <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Personal</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Only visible to you. Takes priority over organization and global links.</p>
@@ -59,7 +59,7 @@
                 {{end}}
                 {{if and .EnableOrgLinks .User.OrganizationID}}
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="org" class="text-brand-500 focus:ring-brand-500 scope-radio">
+                    <input type="radio" name="scope" value="org" class="text-brand-500 focus:ring-brand-500 scope-radio" data-btn="{{if .User.IsOrgMod}}Create Link{{else}}Submit Link{{end}}">
                     <div>
                         <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{{if .OrgName}}{{.OrgName}}{{else}}Organization{{end}}</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsOrgMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to all {{if .OrgName}}{{.OrgName}}{{else}}organization{{end}} members.</p>
@@ -67,7 +67,7 @@
                 </label>
                 {{end}}
                 <label class="flex items-center gap-3 p-4 rounded-xl bg-white/30 dark:bg-gray-800/30 cursor-pointer hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all group">
-                    <input type="radio" name="scope" value="global" {{if not .EnablePersonalLinks}}checked{{end}} class="text-brand-500 focus:ring-brand-500 scope-radio">
+                    <input type="radio" name="scope" value="global" {{if not .EnablePersonalLinks}}checked{{end}} class="text-brand-500 focus:ring-brand-500 scope-radio" data-btn="{{if .User.IsGlobalMod}}Create Link{{else}}Submit Link{{end}}">
                     <div>
                         <span class="font-medium group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Global</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{if .User.IsGlobalMod}}Created immediately.{{else}}Requires moderator approval.{{end}} Visible to everyone.</p>
@@ -82,8 +82,8 @@
         <div id="form-message"></div>
 
         <div class="flex gap-3 pt-2">
-            <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40">
-                Create Link
+            <button type="submit" id="submit-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40">
+                {{if .EnablePersonalLinks}}Create Link{{else if .User.IsGlobalMod}}Create Link{{else}}Submit Link{{end}}
             </button>
             <a href="/browse" class="px-6 py-3 rounded-xl glass-card hover:shadow-md transition-all font-medium">
                 Cancel
@@ -93,13 +93,14 @@
 </div>
 
 <script>
-// Re-check keyword when scope changes
+// Re-check keyword and update button text when scope changes
 document.querySelectorAll('.scope-radio').forEach(radio => {
     radio.addEventListener('change', () => {
         const keyword = document.getElementById('keyword');
         if (keyword.value) {
             htmx.trigger(keyword, 'blur');
         }
+        document.getElementById('submit-btn').textContent = radio.dataset.btn;
     });
 });
 </script>
