@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -11,6 +13,12 @@ import (
 	"golinks/internal/models"
 	"golinks/internal/validation"
 )
+
+// linkWithSparkline wraps a Link with pre-computed sparkline data for the home page.
+type linkWithSparkline struct {
+	models.Link
+	SparklineData string // comma-separated 24 hourly click counts
+}
 
 // LinkHandler handles link CRUD operations.
 type LinkHandler struct {
@@ -49,10 +57,22 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 		orgID = user.OrganizationID
 	}
 
-	// Top used links (global/org only, no personal)
+	// Top used links (global/org only, no personal) with 24h sparkline data
 	topUsed, err := h.db.GetTopApprovedLinks(c.Context(), orgID, 5)
 	if err == nil {
-		data["TopUsedLinks"] = topUsed
+		sparklines := make([]linkWithSparkline, len(topUsed))
+		for i, link := range topUsed {
+			history, hErr := h.db.GetClickHistory24h(c.Context(), link.ID)
+			if hErr != nil || len(history) == 0 {
+				history = make([]int, 24)
+			}
+			parts := make([]string, len(history))
+			for j, v := range history {
+				parts[j] = strconv.Itoa(v)
+			}
+			sparklines[i] = linkWithSparkline{Link: link, SparklineData: strings.Join(parts, ",")}
+		}
+		data["TopUsedLinks"] = sparklines
 	}
 
 	// Newest links
