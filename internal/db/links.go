@@ -241,11 +241,54 @@ func (d *DB) GetLinkByKeyword(ctx context.Context, keyword string) (*models.Link
 	return scanLink(d.Pool.QueryRow(ctx, query, keyword, models.StatusApproved))
 }
 
-// IncrementClickCount increments the click count for a link.
+// IncrementClickCount increments the click count for a link and records hourly history.
 func (d *DB) IncrementClickCount(ctx context.Context, linkID uuid.UUID) error {
-	query := `UPDATE links SET click_count = click_count + 1 WHERE id = $1`
-	_, err := d.Pool.Exec(ctx, query, linkID)
-	return err
+	_, err := d.Pool.Exec(ctx, `UPDATE links SET click_count = click_count + 1 WHERE id = $1`, linkID)
+	if err != nil {
+		return err
+	}
+	// Record hourly click for sparkline analytics (best-effort)
+	d.Pool.Exec(ctx, `
+		INSERT INTO click_history (link_id, hour_bucket, click_count)
+		VALUES ($1, DATE_TRUNC('hour', NOW()), 1)
+		ON CONFLICT (link_id, hour_bucket) DO UPDATE SET click_count = click_history.click_count + 1
+	`, linkID)
+	return nil
+}
+
+// GetClickHistory24h returns hourly click counts for a link over the last 24 hours.
+// Returns a slice of 24 integers, index 0 = 24 hours ago, index 23 = current hour.
+func (d *DB) GetClickHistory24h(ctx context.Context, linkID uuid.UUID) ([]int, error) {
+	query := `
+		WITH hours AS (
+			SELECT generate_series(
+				DATE_TRUNC('hour', NOW() - INTERVAL '23 hours'),
+				DATE_TRUNC('hour', NOW()),
+				INTERVAL '1 hour'
+			) AS hour_bucket
+		)
+		SELECT COALESCE(ch.click_count, 0)
+		FROM hours
+		LEFT JOIN click_history ch
+			ON ch.hour_bucket = hours.hour_bucket
+			AND ch.link_id = $1
+		ORDER BY hours.hour_bucket
+	`
+	rows, err := d.Pool.Query(ctx, query, linkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]int, 0, 24)
+	for rows.Next() {
+		var count int
+		if err := rows.Scan(&count); err != nil {
+			return nil, err
+		}
+		result = append(result, count)
+	}
+	return result, rows.Err()
 }
 
 // GetPendingGlobalLinks retrieves all pending global links for moderation.

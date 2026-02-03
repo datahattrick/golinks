@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,6 +13,18 @@ import (
 	"golinks/internal/validation"
 )
 
+// orgColorPalette provides distinct badge colors for each organization.
+var orgColorPalette = []string{
+	"bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+	"bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+	"bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300",
+	"bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+	"bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",
+	"bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+	"bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300",
+	"bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300",
+}
+
 // ManageHandler handles link management operations for moderators.
 type ManageHandler struct {
 	db  *db.DB
@@ -21,6 +34,21 @@ type ManageHandler struct {
 // NewManageHandler creates a new manage handler.
 func NewManageHandler(database *db.DB, cfg *config.Config) *ManageHandler {
 	return &ManageHandler{db: database, cfg: cfg}
+}
+
+// buildOrgMaps returns name and color maps for all organizations, keyed by ID string.
+func (h *ManageHandler) buildOrgMaps(ctx context.Context) (map[string]string, map[string]string) {
+	orgNames := make(map[string]string)
+	orgColors := make(map[string]string)
+	orgs, err := h.db.GetAllOrganizations(ctx)
+	if err != nil {
+		return orgNames, orgColors
+	}
+	for i, org := range orgs {
+		orgNames[org.ID.String()] = org.Name
+		orgColors[org.ID.String()] = orgColorPalette[i%len(orgColorPalette)]
+	}
+	return orgNames, orgColors
 }
 
 // Index renders the management page.
@@ -41,19 +69,25 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 		return err
 	}
 
+	orgNames, orgColors := h.buildOrgMaps(c.Context())
+
 	// Check if this is an HTMX request
 	if c.Get("HX-Request") == "true" {
 		return c.Render("partials/manage_links_list", fiber.Map{
-			"Links":  links,
-			"Filter": filter,
-			"User":   user,
+			"Links":     links,
+			"Filter":    filter,
+			"User":      user,
+			"OrgNames":  orgNames,
+			"OrgColors": orgColors,
 		}, "")
 	}
 
 	return c.Render("manage", MergeBranding(fiber.Map{
-		"User":   user,
-		"Links":  links,
-		"Filter": filter,
+		"User":      user,
+		"Links":     links,
+		"Filter":    filter,
+		"OrgNames":  orgNames,
+		"OrgColors": orgColors,
 	}, h.cfg))
 }
 
@@ -145,9 +179,13 @@ func (h *ManageHandler) Update(c fiber.Ctx) error {
 		return err
 	}
 
+	orgNames, orgColors := h.buildOrgMaps(c.Context())
+
 	return c.Render("partials/manage_link_row", fiber.Map{
-		"Link": link,
-		"User": user,
+		"Link":      link,
+		"User":      user,
+		"OrgNames":  orgNames,
+		"OrgColors": orgColors,
 	}, "")
 }
 
