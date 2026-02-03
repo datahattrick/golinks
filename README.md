@@ -1,6 +1,6 @@
 # GoLinks
 
-A self-hosted URL shortener for teams. Create memorable short links like `go/docs` that redirect to long URLs.
+A self-hosted URL shortener for teams. Create memorable short links like `docs` that redirect to long URLs.
 
 ## Features
 
