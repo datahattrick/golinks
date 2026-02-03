@@ -59,7 +59,15 @@ func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 }
 
 // redirectToLogin saves the current URL and redirects to login.
+// For API requests (/api/*), returns a 401 JSON error instead of redirecting.
 func (m *AuthMiddleware) redirectToLogin(c fiber.Ctx, sess *session.Middleware) error {
+	if strings.HasPrefix(c.Path(), "/api/") {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status": "error",
+			"error":  "authentication required",
+		})
+	}
+
 	// Store the original URL for redirect after login
 	originalURL := c.OriginalURL()
 	if sess == nil {

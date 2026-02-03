@@ -29,6 +29,7 @@
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span>
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">pending</span>
+                                <span id="health-{{.ID}}"></span>
                             </div>
                             <a href="{{.URL}}" target="_blank" class="text-sm text-gray-500 dark:text-gray-400 hover:text-brand-600 hover:underline truncate block transition-colors">{{.URL}}</a>
                             {{if .Description}}
@@ -36,6 +37,13 @@
                             {{end}}
                         </div>
                         <div class="flex gap-2 flex-shrink-0">
+                            <button
+                                hx-post="/health/{{.ID}}"
+                                hx-target="#health-{{.ID}}"
+                                hx-swap="innerHTML"
+                                class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                Check
+                            </button>
                             <button
                                 hx-post="/moderation/{{.ID}}/approve"
                                 hx-target="#link-{{.ID}}"
@@ -77,6 +85,7 @@
                                 {{if .OrganizationID}}
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">{{index $orgNames .OrganizationID.String}}</span>
                                 {{end}}
+                                <span id="health-{{.ID}}"></span>
                             </div>
                             <a href="{{.URL}}" target="_blank" class="text-sm text-gray-500 dark:text-gray-400 hover:text-brand-600 hover:underline truncate block transition-colors">{{.URL}}</a>
                             {{if .Description}}
@@ -84,6 +93,13 @@
                             {{end}}
                         </div>
                         <div class="flex gap-2 flex-shrink-0">
+                            <button
+                                hx-post="/health/{{.ID}}"
+                                hx-target="#health-{{.ID}}"
+                                hx-swap="innerHTML"
+                                class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                Check
+                            </button>
                             <button
                                 hx-post="/moderation/{{.ID}}/approve"
                                 hx-target="#link-{{.ID}}"
