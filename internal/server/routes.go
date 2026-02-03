@@ -7,6 +7,7 @@ import (
 	"golinks/internal/db"
 	"golinks/internal/email"
 	"golinks/internal/handlers"
+	"golinks/internal/handlers/api"
 	"golinks/internal/middleware"
 )
 
@@ -93,6 +94,42 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 		s.App.Get("/go/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)
 		s.App.Get("/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)
 	}
+
+	// --- JSON API v1 routes ---
+	apiLinkHandler := api.NewLinkHandler(database, s.Cfg, notifier)
+	apiResolveHandler := api.NewResolveHandler(database, s.Cfg)
+	apiUserHandler := api.NewUserHandler(database, s.Cfg)
+	apiModerationHandler := api.NewModerationHandler(database, s.Cfg, notifier)
+	apiHealthHandler := api.NewHealthHandler(database)
+
+	// Link management API
+	s.App.Get("/api/v1/links", authMiddleware.RequireAuth, apiLinkHandler.List)
+	s.App.Post("/api/v1/links", authMiddleware.RequireAuth, apiLinkHandler.Create)
+	s.App.Get("/api/v1/links/check/:keyword", authMiddleware.RequireAuth, apiLinkHandler.CheckKeyword)
+	s.App.Get("/api/v1/links/:id", authMiddleware.RequireAuth, apiLinkHandler.Get)
+	s.App.Put("/api/v1/links/:id", authMiddleware.RequireAuth, apiLinkHandler.Update)
+	s.App.Delete("/api/v1/links/:id", authMiddleware.RequireAuth, apiLinkHandler.Delete)
+
+	// Keyword resolution API - auth depends on mode
+	if s.Cfg.IsSimpleMode() {
+		s.App.Get("/api/v1/resolve/:keyword", authMiddleware.OptionalAuth, apiResolveHandler.Resolve)
+	} else {
+		s.App.Get("/api/v1/resolve/:keyword", authMiddleware.RequireAuth, apiResolveHandler.Resolve)
+	}
+
+	// User management API (admin checks enforced in handlers)
+	s.App.Get("/api/v1/users", authMiddleware.RequireAuth, apiUserHandler.List)
+	s.App.Put("/api/v1/users/:id/role", authMiddleware.RequireAuth, apiUserHandler.UpdateRole)
+	s.App.Put("/api/v1/users/:id/org", authMiddleware.RequireAuth, apiUserHandler.UpdateOrg)
+	s.App.Delete("/api/v1/users/:id", authMiddleware.RequireAuth, apiUserHandler.Delete)
+
+	// Moderation API (moderator checks enforced in handlers)
+	s.App.Get("/api/v1/moderation/pending", authMiddleware.RequireAuth, apiModerationHandler.ListPending)
+	s.App.Post("/api/v1/moderation/:id/approve", authMiddleware.RequireAuth, apiModerationHandler.Approve)
+	s.App.Post("/api/v1/moderation/:id/reject", authMiddleware.RequireAuth, apiModerationHandler.Reject)
+
+	// Health check API (moderator checks enforced in handler)
+	s.App.Post("/api/v1/health/:id", authMiddleware.RequireAuth, apiHealthHandler.CheckLink)
 
 	return nil
 }

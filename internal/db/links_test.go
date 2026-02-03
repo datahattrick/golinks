@@ -60,14 +60,22 @@ func TestCreateLink(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	userID := uuid.New()
+
+	user := &models.User{
+		Sub:   "test-creator",
+		Email: "creator@example.com",
+		Name:  "Test Creator",
+	}
+	if err := db.UpsertUser(ctx, user); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
 
 	link := &models.Link{
 		Keyword:     "test-link",
 		URL:         "https://example.com",
 		Description: "Test description",
 		Scope:       models.ScopeGlobal,
-		CreatedBy:   &userID,
+		CreatedBy:   &user.ID,
 	}
 
 	err := db.CreateLink(ctx, link)
@@ -114,14 +122,22 @@ func TestSubmitLinkForApproval(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	userID := uuid.New()
+
+	user := &models.User{
+		Sub:   "test-submitter",
+		Email: "submitter@example.com",
+		Name:  "Test Submitter",
+	}
+	if err := db.UpsertUser(ctx, user); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
 
 	link := &models.Link{
 		Keyword:     "pending-link",
 		URL:         "https://example.com",
 		Description: "Pending link",
 		Scope:       models.ScopeGlobal,
-		SubmittedBy: &userID,
+		SubmittedBy: &user.ID,
 	}
 
 	err := db.SubmitLinkForApproval(ctx, link)
@@ -139,20 +155,36 @@ func TestApproveLink(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	submitterID := uuid.New()
-	reviewerID := uuid.New()
+
+	submitter := &models.User{
+		Sub:   "test-submitter-approve",
+		Email: "submitter-approve@example.com",
+		Name:  "Test Submitter",
+	}
+	if err := db.UpsertUser(ctx, submitter); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
+
+	reviewer := &models.User{
+		Sub:   "test-reviewer-approve",
+		Email: "reviewer-approve@example.com",
+		Name:  "Test Reviewer",
+	}
+	if err := db.UpsertUser(ctx, reviewer); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
 
 	link := &models.Link{
 		Keyword:     "approve-test",
 		URL:         "https://example.com",
 		Scope:       models.ScopeGlobal,
-		SubmittedBy: &submitterID,
+		SubmittedBy: &submitter.ID,
 	}
 	if err := db.SubmitLinkForApproval(ctx, link); err != nil {
 		t.Fatalf("SubmitLinkForApproval() error = %v", err)
 	}
 
-	err := db.ApproveLink(ctx, link.ID, reviewerID)
+	err := db.ApproveLink(ctx, link.ID, reviewer.ID)
 	if err != nil {
 		t.Fatalf("ApproveLink() error = %v", err)
 	}
@@ -165,7 +197,7 @@ func TestApproveLink(t *testing.T) {
 	if approved.Status != models.StatusApproved {
 		t.Errorf("ApproveLink() status = %q, want %q", approved.Status, models.StatusApproved)
 	}
-	if approved.ReviewedBy == nil || *approved.ReviewedBy != reviewerID {
+	if approved.ReviewedBy == nil || *approved.ReviewedBy != reviewer.ID {
 		t.Error("ApproveLink() did not set ReviewedBy")
 	}
 }
@@ -175,20 +207,36 @@ func TestRejectLink(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	submitterID := uuid.New()
-	reviewerID := uuid.New()
+
+	submitter := &models.User{
+		Sub:   "test-submitter-reject",
+		Email: "submitter-reject@example.com",
+		Name:  "Test Submitter",
+	}
+	if err := db.UpsertUser(ctx, submitter); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
+
+	reviewer := &models.User{
+		Sub:   "test-reviewer-reject",
+		Email: "reviewer-reject@example.com",
+		Name:  "Test Reviewer",
+	}
+	if err := db.UpsertUser(ctx, reviewer); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
 
 	link := &models.Link{
 		Keyword:     "reject-test",
 		URL:         "https://example.com",
 		Scope:       models.ScopeGlobal,
-		SubmittedBy: &submitterID,
+		SubmittedBy: &submitter.ID,
 	}
 	if err := db.SubmitLinkForApproval(ctx, link); err != nil {
 		t.Fatalf("SubmitLinkForApproval() error = %v", err)
 	}
 
-	err := db.RejectLink(ctx, link.ID, reviewerID)
+	err := db.RejectLink(ctx, link.ID, reviewer.ID)
 	if err != nil {
 		t.Fatalf("RejectLink() error = %v", err)
 	}
@@ -240,7 +288,15 @@ func TestGetPendingGlobalLinks(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	userID := uuid.New()
+
+	user := &models.User{
+		Sub:   "test-pending-submitter",
+		Email: "pending-submitter@example.com",
+		Name:  "Test Submitter",
+	}
+	if err := db.UpsertUser(ctx, user); err != nil {
+		t.Fatalf("UpsertUser() error = %v", err)
+	}
 
 	// Create some pending links
 	for i := 1; i <= 3; i++ {
@@ -248,7 +304,7 @@ func TestGetPendingGlobalLinks(t *testing.T) {
 			Keyword:     "pending-" + string(rune('0'+i)),
 			URL:         "https://example.com",
 			Scope:       models.ScopeGlobal,
-			SubmittedBy: &userID,
+			SubmittedBy: &user.ID,
 		}
 		if err := db.SubmitLinkForApproval(ctx, link); err != nil {
 			t.Fatalf("SubmitLinkForApproval() error = %v", err)

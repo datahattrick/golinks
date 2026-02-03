@@ -5,58 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .Title}}{{.Title}} - {{end}}{{if .SiteTitle}}{{.SiteTitle}}{{else}}GoLinks{{end}}</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/fonts.css">
+    <script src="/static/js/htmx.min.js"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-                    },
-                    colors: {
-                        brand: {
-                            50: '#ecfeff',
-                            100: '#cffafe',
-                            200: '#a5f3fc',
-                            300: '#67e8f9',
-                            400: '#22d3ee',
-                            500: '#06b6d4',
-                            600: '#0891b2',
-                            700: '#0e7490',
-                            800: '#155e75',
-                            900: '#164e63',
-                            950: '#083344',
-                        }
-                    },
-                    animation: {
-                        'float': 'float 20s ease-in-out infinite',
-                        'float-delayed': 'float 25s ease-in-out infinite reverse',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
-                            '25%': { transform: 'translate(10px, -15px) rotate(1deg)' },
-                            '50%': { transform: 'translate(-5px, 10px) rotate(-1deg)' },
-                            '75%': { transform: 'translate(-15px, -5px) rotate(0.5deg)' },
-                        }
-                    }
-                }
-            }
-        }
-        // Check for dark mode preference
+        // Dark mode (before any rendering)
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark')
         } else {
             document.documentElement.classList.remove('dark')
         }
+        // Tailwind config (must be defined before tailwind.min.js loads)
+        tailwind = {
+            config: {
+                darkMode: 'class',
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            sans: ['Inter', 'system-ui', 'sans-serif'],
+                            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                        },
+                        colors: {
+                            brand: {
+                                50: '#ecfeff',
+                                100: '#cffafe',
+                                200: '#a5f3fc',
+                                300: '#67e8f9',
+                                400: '#22d3ee',
+                                500: '#06b6d4',
+                                600: '#0891b2',
+                                700: '#0e7490',
+                                800: '#155e75',
+                                900: '#164e63',
+                                950: '#083344',
+                            }
+                        },
+                        animation: {
+                            'float': 'float 20s ease-in-out infinite',
+                            'float-delayed': 'float 25s ease-in-out infinite reverse',
+                            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        },
+                        keyframes: {
+                            float: {
+                                '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
+                                '25%': { transform: 'translate(10px, -15px) rotate(1deg)' },
+                                '50%': { transform: 'translate(-5px, 10px) rotate(-1deg)' },
+                                '75%': { transform: 'translate(-15px, -5px) rotate(0.5deg)' },
+                            }
+                        }
+                    }
+                }
+            }
+        }
     </script>
+    <script src="/static/js/tailwind.min.js"></script>
     <style>
         /* Animated gradient background */
         .bg-animated {

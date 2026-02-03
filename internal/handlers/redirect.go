@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -27,11 +28,19 @@ func NewRedirectHandler(database *db.DB, cfg *config.Config) *RedirectHandler {
 // Redirect looks up a keyword and redirects to the associated URL.
 // Uses tier-based resolution: personal (100) > group (1-99) > global (0)
 // At the same tier, user's primary group wins.
+// API clients (Accept: application/json) receive JSON instead of a redirect.
 func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	keyword := c.Params("keyword")
+	wantsJSON := strings.Contains(c.Get("Accept"), "application/json")
 
 	// Validate keyword format to prevent path traversal or injection attacks
 	if !validation.ValidateKeyword(keyword) {
+		if wantsJSON {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status": "error",
+				"error":  "invalid keyword",
+			})
+		}
 		return c.Status(fiber.StatusBadRequest).Render("error", MergeBranding(fiber.Map{
 			"Title":   "Invalid Keyword",
 			"Message": "The keyword contains invalid characters.",
@@ -49,7 +58,13 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, keyword)
 	if err != nil {
 		if errors.Is(err, db.ErrLinkNotFound) {
-			// Check for organization fallback URL
+			if wantsJSON {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"status": "error",
+					"error":  "keyword not found",
+				})
+			}
+			// Check for organization fallback URL (browser only)
 			if user != nil && user.OrganizationID != nil {
 				org, orgErr := h.db.GetOrganizationByID(c.Context(), *user.OrganizationID)
 				if orgErr == nil && org.FallbackRedirectURL != nil && *org.FallbackRedirectURL != "" {
@@ -66,6 +81,19 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 
 	// Increment click count asynchronously
 	go h.db.IncrementResolvedLinkClickCount(context.Background(), resolved, userID)
+
+	// Return JSON for API clients
+	if wantsJSON {
+		return c.JSON(fiber.Map{
+			"status": "ok",
+			"data": fiber.Map{
+				"keyword": keyword,
+				"url":     resolved.URL,
+				"tier":    resolved.Tier,
+				"source":  resolved.Source,
+			},
+		})
+	}
 
 	return c.Redirect().To(resolved.URL)
 }
