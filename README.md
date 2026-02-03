@@ -50,7 +50,8 @@ A self-hosted URL shortener for teams. Create memorable short links like `go/doc
 - **Simple Interface** - Clean, centered search with instant results via HTMX
 - **Dark Mode** - Automatic detection with manual toggle
 - **OIDC Authentication** - SSO integration with any OpenID Connect provider
-- **Click Tracking** - Track how often each link is used
+- **Click Tracking** - Track how often each link is used with 24-hour sparkline graphs on the home page
+- **JSON API** - RESTful `/api/v1` endpoints for programmatic link, user, and moderation management
 - **Fast Search** - Trigram-based fuzzy search across keywords, URLs, and descriptions
 - **Multi-tenant** - Organizations with separate link namespaces
 - **Link Scopes** - Global, Organization, and Personal links with priority resolution
@@ -640,31 +641,86 @@ Organizations can have:
 
 ## API Reference
 
-### Routes
+### UI Routes (HTMX)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/` | Optional | Home page with search |
-| `GET` | `/search` | Optional | HTMX search results |
+| `GET` | `/` | Required | Home page with search and sparklines |
+| `GET` | `/search` | Required | Search results page |
+| `GET` | `/suggest` | Required | HTMX live suggestions |
+| `GET` | `/browse` | Required | Browse all links |
 | `GET` | `/new` | Required | Create link form |
 | `POST` | `/links` | Required | Create link (HTMX) |
 | `DELETE` | `/links/:id` | Required | Delete link (HTMX) |
+| `GET` | `/my-links` | Required | Personal links list |
+| `POST` | `/my-links` | Required | Create personal link |
+| `DELETE` | `/my-links/:id` | Required | Delete personal link |
 | `GET` | `/profile` | Required | User profile page |
 | `GET` | `/moderation` | Required (Mod+) | Moderation queue |
 | `POST` | `/moderation/:id/approve` | Required (Mod+) | Approve pending link |
 | `POST` | `/moderation/:id/reject` | Required (Mod+) | Reject pending link |
-| `GET` | `/users` | Required (Admin) | User management |
-| `PATCH` | `/users/:id` | Required (Admin) | Update user |
-| `DELETE` | `/users/:id` | Required (Admin) | Delete user |
-| `GET` | `/go/:keyword` | None | Redirect to URL |
-| `GET` | `/:keyword` | None | Short redirect |
+| `GET` | `/manage` | Required (Mod+) | Link management with health and org badges |
+| `GET` | `/manage/:id/edit` | Required (Mod+) | Inline edit form |
+| `PUT` | `/manage/:id` | Required (Mod+) | Save link edits |
+| `POST` | `/health/:id` | Required (Mod+) | Trigger health check |
+| `GET` | `/admin/users` | Required (Admin) | User management |
+| `POST` | `/admin/users/:id/role` | Required (Admin) | Update user role |
+| `POST` | `/admin/users/:id/org` | Required (Admin) | Update user org |
+| `DELETE` | `/admin/users/:id` | Required (Admin) | Delete user |
+| `GET` | `/random` | Required | Redirect to a random link |
+| `GET` | `/go/:keyword` | Depends on mode | Redirect to URL |
+| `GET` | `/:keyword` | Depends on mode | Short redirect |
 | `GET` | `/auth/login` | None | Initiate OIDC login |
 | `GET` | `/auth/callback` | None | OIDC callback |
-| `POST` | `/auth/logout` | Required | Log out |
+| `GET` | `/auth/logout` | Required | Log out |
+
+### JSON API (`/api/v1`)
+
+All JSON API endpoints use the same session-based authentication as the UI. Clients must authenticate via `/auth/login` first and include the session cookie on subsequent requests.
+
+#### Links
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/links` | Required | List/search links (`?q=`, `?scope=`, `?status=`) |
+| `POST` | `/api/v1/links` | Required | Create a link |
+| `GET` | `/api/v1/links/:id` | Required | Get a single link |
+| `PUT` | `/api/v1/links/:id` | Required | Update a link |
+| `DELETE` | `/api/v1/links/:id` | Required | Delete a link |
+| `GET` | `/api/v1/links/check/:keyword` | Required | Check keyword availability |
+
+#### Resolve
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/resolve/:keyword` | Depends on mode | Resolve keyword to URL (JSON, no redirect) |
+
+#### Users (Admin)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/users` | Required (Admin) | List all users |
+| `PUT` | `/api/v1/users/:id/role` | Required (Admin) | Update user role |
+| `PUT` | `/api/v1/users/:id/org` | Required (Admin) | Update user organization |
+| `DELETE` | `/api/v1/users/:id` | Required (Admin) | Delete a user |
+
+#### Moderation
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/moderation/pending` | Required (Mod+) | List pending links |
+| `POST` | `/api/v1/moderation/:id/approve` | Required (Mod+) | Approve a pending link |
+| `POST` | `/api/v1/moderation/:id/reject` | Required (Mod+) | Reject a pending link |
+
+#### Health
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/v1/health/:id` | Required (Mod+) | Run a health check on a link |
 
 ### Response Formats
 
-Most endpoints return HTMX partials for dynamic updates. The redirect endpoints return HTTP 302 redirects.
+UI routes return HTMX partials for dynamic page updates. Redirect routes (`/go/:keyword`, `/:keyword`) return HTTP 302 redirects. All `/api/v1` routes return JSON. In "simple mode" (personal and org links disabled), `/go/:keyword` and `/api/v1/resolve/:keyword` do not require authentication.
 
 ---
 
@@ -719,6 +775,15 @@ GoLinks uses PostgreSQL with the following main tables:
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
 | `updated_at` | TIMESTAMPTZ | Last update |
 
+#### `click_history`
+| Column | Type | Description |
+|--------|------|-------------|
+| `link_id` | UUID | FK to links (CASCADE on delete) |
+| `hour_bucket` | TIMESTAMPTZ | Hour the clicks occurred in |
+| `click_count` | INTEGER | Number of clicks in that hour |
+
+Unique constraint on `(link_id, hour_bucket)`. Used to power the 24-hour sparkline graphs on the home page.
+
 #### `groups` (Tier-based Hierarchy)
 | Column | Type | Description |
 |--------|------|-------------|
@@ -754,6 +819,7 @@ Current migrations:
 6. `006_add_groups_and_tiers` - Hierarchical group structure
 7. `007_add_org_fallback_url` - Per-org fallback redirects
 8. `008_fix_keyword_unique_constraint` - Allow org keywords to shadow global
+9. `009_add_click_history` - Hourly click buckets for sparkline analytics
 
 ---
 
@@ -774,13 +840,25 @@ golinks/
 │   │   ├── users.go         # User CRUD operations
 │   │   ├── organizations.go # Organization operations
 │   │   └── groups.go        # Group/tier operations
-│   ├── handlers/            # HTTP handlers
+│   ├── handlers/            # HTTP handlers (HTMX UI)
 │   │   ├── auth.go          # OIDC flow (login/callback/logout)
-│   │   ├── links.go         # Link management + HTMX partials
+│   │   ├── links.go         # Link management + HTMX partials + sparklines
+│   │   ├── manage.go        # Moderator link management with org badges
 │   │   ├── moderation.go    # Link approval workflow
+│   │   ├── health.go        # URL health-check trigger
+│   │   ├── user_links.go    # Personal link CRUD
 │   │   ├── users.go         # User management (admin)
 │   │   ├── profile.go       # User profile page
-│   │   └── redirect.go      # Keyword → URL redirect
+│   │   ├── branding.go      # Site-branding helpers
+│   │   ├── handlers.go      # Shared handler utilities
+│   │   ├── redirect.go      # Keyword → URL redirect
+│   │   └── api/             # JSON API v1 handlers
+│   │       ├── links.go     # Link CRUD (JSON)
+│   │       ├── resolve.go   # Keyword resolution (JSON)
+│   │       ├── users.go     # User management (JSON)
+│   │       ├── moderation.go# Approve/reject (JSON)
+│   │       ├── health.go    # Health check (JSON)
+│   │       └── response.go  # JSON response helpers
 │   ├── email/               # Email notifications
 │   │   ├── email.go         # SMTP service
 │   │   ├── templates.go     # Email templates
@@ -801,7 +879,9 @@ golinks/
 │   │   └── main.html        # Base layout with HTMX script
 │   └── partials/            # HTMX partial templates
 ├── static/
-│   ├── css/                 # Stylesheets
+│   ├── css/                 # Stylesheets (fonts.css, style.css)
+│   ├── js/                  # Vendored JS (htmx.min.js, tailwind.min.js)
+│   ├── fonts/               # Vendored WOFF2 fonts (Inter, JetBrains Mono)
 │   └── favicon.svg          # Site favicon
 ├── chart/golinks/           # Helm chart for Kubernetes/OpenShift
 │   ├── Chart.yaml           # Chart metadata

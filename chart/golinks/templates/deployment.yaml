@@ -101,21 +101,11 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            - name: views
-              mountPath: /app/views
-              readOnly: true
-            - name: static
-              mountPath: /app/static
-              readOnly: true
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
         - name: tmp
-          emptyDir: {}
-        - name: views
-          emptyDir: {}
-        - name: static
           emptyDir: {}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
