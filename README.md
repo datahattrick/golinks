@@ -120,9 +120,8 @@ docker run -d \
 ```
 
 **Available Tags:**
-- `latest` - Latest build from main branch
+- `latest` - Latest release
 - `v1.0.0`, `v1.0`, `v1` - Semantic version tags
-- `main` - Main branch builds
 - `<sha>` - Specific commit builds
 
 #### Using Docker Compose

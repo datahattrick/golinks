@@ -25,20 +25,6 @@
         </div>
         <div class="flex items-center gap-4 ml-4 flex-shrink-0">
             <span class="text-sm font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
-            {{if $.User}}
-                {{if .CreatedBy}}
-                    {{if eq .CreatedBy.String $.User.ID.String}}
-                    <button
-                        class="text-xs px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all font-medium"
-                        hx-delete="/links/{{.ID}}"
-                        hx-target="#link-{{.ID}}"
-                        hx-swap="outerHTML"
-                        hx-confirm="Delete this link?">
-                        Delete
-                    </button>
-                    {{end}}
-                {{end}}
-            {{end}}
         </div>
     </div>
 </div>
