@@ -1,62 +1,118 @@
+# -- Number of replicas (ignored if autoscaling is enabled)
 replicaCount: 1
 
+# -- Image configuration
 image:
-  repository: golinks
+  # -- Container image repository
+  repository: ghcr.io/datahattrick/golinks
+  # -- Image pull policy
   pullPolicy: IfNotPresent
+  # -- Overrides the image tag (default is the chart appVersion)
   tag: ""
 
+# -- Image pull secrets for private registries
 imagePullSecrets: []
+# -- Override the chart name
 nameOverride: ""
+# -- Override the full release name
 fullnameOverride: ""
 
+# =============================================================================
+# Service Account
+# =============================================================================
 serviceAccount:
+  # -- Create a service account
   create: true
+  # -- Annotations for the service account
   annotations: {}
+  # -- Name of the service account (auto-generated if not set)
   name: ""
+  # -- Automount API credentials
+  automountServiceAccountToken: false
 
+# =============================================================================
+# Pod Configuration
+# =============================================================================
+# -- Annotations to add to pods
 podAnnotations: {}
 
-# OpenShift compatible security context
-# Does not set runAsUser to allow OpenShift to assign arbitrary UID
+# -- Labels to add to pods
+podLabels: {}
+
+# -- Pod security context (OpenShift compatible - no runAsUser)
 podSecurityContext:
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
 
+# -- Container security context
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
   readOnlyRootFilesystem: true
+  runAsNonRoot: true
 
+# =============================================================================
+# Service Configuration
+# =============================================================================
 service:
+  # -- Service type
   type: ClusterIP
+  # -- Service port
   port: 3000
-
-# OpenShift Route configuration
-route:
-  enabled: true
-  host: ""
-  path: /
-  tls:
-    enabled: true
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
+  # -- Service annotations
   annotations: {}
 
-# Kubernetes Ingress (alternative to Route)
+# =============================================================================
+# Ingress Configuration (Kubernetes)
+# =============================================================================
 ingress:
+  # -- Enable ingress
   enabled: false
+  # -- Ingress class name
   className: ""
+  # -- Ingress annotations
   annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  # -- Ingress hosts configuration
   hosts:
     - host: golinks.local
       paths:
         - path: /
           pathType: Prefix
+  # -- TLS configuration
   tls: []
+  #  - secretName: golinks-tls
+  #    hosts:
+  #      - golinks.local
 
+# =============================================================================
+# OpenShift Route Configuration
+# =============================================================================
+route:
+  # -- Enable OpenShift Route (mutually exclusive with ingress)
+  enabled: false
+  # -- Route hostname (auto-generated if empty)
+  host: ""
+  # -- Route path
+  path: /
+  # -- Route annotations
+  annotations: {}
+  # -- TLS configuration
+  tls:
+    # -- Enable TLS
+    enabled: true
+    # -- TLS termination type (edge, passthrough, reencrypt)
+    termination: edge
+    # -- Insecure traffic policy (Allow, Redirect, None)
+    insecureEdgeTerminationPolicy: Redirect
+
+# =============================================================================
+# Resources
+# =============================================================================
 resources:
   limits:
     cpu: 500m
@@ -65,106 +121,248 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
+# =============================================================================
+# Probes
+# =============================================================================
+# -- Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
 
+# -- Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+# -- Startup probe configuration (for slow-starting containers)
+startupProbe: {}
+  # httpGet:
+  #   path: /
+  #   port: http
+  # failureThreshold: 30
+  # periodSeconds: 10
+
+# =============================================================================
+# Autoscaling
+# =============================================================================
+autoscaling:
+  # -- Enable horizontal pod autoscaling
+  enabled: false
+  # -- Minimum replicas
+  minReplicas: 1
+  # -- Maximum replicas
+  maxReplicas: 10
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage
+  targetMemoryUtilizationPercentage: ""
+
+# =============================================================================
+# Pod Disruption Budget
+# =============================================================================
+podDisruptionBudget:
+  # -- Enable PodDisruptionBudget
+  enabled: false
+  # -- Minimum available pods (mutually exclusive with maxUnavailable)
+  minAvailable: 1
+  # -- Maximum unavailable pods
+  maxUnavailable: ""
+
+# =============================================================================
+# Scheduling
+# =============================================================================
+# -- Node selector
 nodeSelector: {}
+
+# -- Tolerations
 tolerations: []
+
+# -- Affinity rules
 affinity: {}
 
-# Application configuration
+# -- Topology spread constraints
+topologySpreadConstraints: []
+
+# =============================================================================
+# Application Configuration
+# =============================================================================
 config:
+  # -- Server listen address
   serverAddr: ":3000"
+  # -- Public base URL for redirects and callbacks
   baseURL: "https://go.example.com"
+  # -- Environment (development, production)
   environment: "production"
 
-  # Site branding
-  siteTitle: "GoLinks"
-  siteTagline: "Quick links for your organization"
-  siteFooter: ""
-  siteLogoURL: ""
+  # -- Site branding
+  branding:
+    # -- Site title displayed in header
+    title: "GoLinks"
+    # -- Tagline displayed on home page
+    tagline: "Quick links for your organization"
+    # -- Footer text
+    footer: ""
+    # -- URL to logo image
+    logoURL: ""
 
-  # Features
-  enableRandomKeywords: false
-  enablePersonalLinks: true
-  enableOrgLinks: true
+  # -- Feature toggles
+  features:
+    # -- Enable "I'm Feeling Lucky" random link feature
+    randomKeywords: false
+    # -- Enable personal link scopes
+    personalLinks: true
+    # -- Enable organization link scopes
+    orgLinks: true
 
-  # Health check settings
-  healthCheckInterval: "1h"
-  healthCheckMaxAge: "24h"
+  # -- Health check settings
+  healthCheck:
+    # -- Interval between health checks
+    interval: "1h"
+    # -- Maximum age before re-checking
+    maxAge: "24h"
 
-# OIDC configuration
+# =============================================================================
+# OIDC Authentication
+# =============================================================================
 oidc:
+  # -- OIDC issuer URL (required)
   issuer: ""
+  # -- OIDC client ID
   clientId: ""
-  # clientSecret should be provided via existingSecret
+  # -- OAuth callback URL (usually baseURL + /auth/callback)
   redirectURL: ""
+  # -- OIDC scopes to request
   scopes: "openid profile email"
-  orgClaim: ""
-  # Group-to-role mapping (optional)
-  # When configured, user roles are derived from OIDC group claims on every login
-  groupsClaim: "groups"      # Claim name containing group list
-  adminGroups: ""            # Comma-separated groups that grant admin role (e.g., "golinks-admin")
-  moderatorGroups: ""        # Comma-separated groups that grant moderator role (e.g., "golinks-moderator")
-  # Legacy fields (deprecated - use group mapping instead)
-  adminUsers: ""
-  globalMods: ""
 
-# Database configuration
+  # -- Claim mappings
+  claims:
+    # -- Claim name for user's organization
+    org: "organisation"
+    # -- Claim name for user's groups
+    groups: "groups"
+
+  # -- Group-to-role mapping (optional)
+  # When configured, user roles are derived from OIDC groups on every login
+  roleMapping:
+    # -- OIDC groups that grant admin role (comma-separated)
+    adminGroups: ""
+    # -- OIDC groups that grant moderator role (comma-separated)
+    moderatorGroups: ""
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
 database:
-  # Use external database
+  # -- External database configuration
   external:
+    # -- Use external database (if false, DATABASE_URL must be in existingSecret)
     enabled: true
+    # -- Database host
     host: ""
+    # -- Database port
     port: 5432
+    # -- Database name
     name: "golinks"
+    # -- Database user
     user: "golinks"
+    # -- SSL mode (disable, require, verify-ca, verify-full)
     sslMode: "require"
 
-  # Or use existing secret for DATABASE_URL
+  # -- Existing secret containing DATABASE_URL
   existingSecret: ""
+  # -- Key in existingSecret for DATABASE_URL
   existingSecretKey: "DATABASE_URL"
 
-# TLS configuration (for mTLS)
+# =============================================================================
+# Secrets
+# =============================================================================
+# -- Existing secret for sensitive values
+# Required keys: SESSION_SECRET, OIDC_CLIENT_SECRET
+# Optional keys: DATABASE_URL, SMTP_PASSWORD
+existingSecret: ""
+
+# =============================================================================
+# TLS / mTLS Configuration
+# =============================================================================
 tls:
+  # -- Enable TLS termination at the application level
   enabled: false
+  # -- Path to TLS certificate
   certFile: ""
+  # -- Path to TLS private key
   keyFile: ""
+  # -- Path to CA file for client cert verification (mTLS)
   caFile: ""
+  # -- Existing secret containing TLS certificates
   existingSecret: ""
 
-# Existing secret for sensitive values
-existingSecret: ""
-# Keys expected in existingSecret:
-#   SESSION_SECRET
-#   OIDC_CLIENT_SECRET
-#   DATABASE_URL (optional, if database.existingSecret not set)
-
+# =============================================================================
 # SMTP Email Configuration
+# =============================================================================
 smtp:
+  # -- Enable email notifications
   enabled: false
+  # -- SMTP server hostname
   host: ""
+  # -- SMTP server port
   port: 587
+  # -- SMTP username
   username: ""
-  # password should be provided via existingSecret
+  # -- Sender email address
   from: ""
+  # -- Sender display name
   fromName: "GoLinks"
-  tls: "starttls"  # none, starttls, tls
+  # -- TLS mode (none, starttls, tls)
+  tlsMode: "starttls"
 
-# Email Notification Settings
+# -- Email notification settings
 emailNotifications:
+  # -- Notify moderators when a link is submitted
   notifyModsOnSubmit: true
+  # -- Notify users when their link is approved
   notifyUserOnApproval: true
+  # -- Notify users when their link is rejected
   notifyUserOnRejection: true
+  # -- Notify users when their link is deleted
   notifyUserOnDeletion: true
+  # -- Notify moderators on health check failures
   notifyModsOnHealthFailure: true
 
-# Extra environment variables
+# =============================================================================
+# Additional Configuration
+# =============================================================================
+# -- Extra environment variables
 extraEnv: []
+#  - name: MY_VAR
+#    value: "my-value"
 
-# Extra volumes and volume mounts
+# -- Extra environment variables from ConfigMaps or Secrets
+extraEnvFrom: []
+#  - configMapRef:
+#      name: my-configmap
+#  - secretRef:
+#      name: my-secret
+
+# -- Extra volumes
 extraVolumes: []
+
+# -- Extra volume mounts
 extraVolumeMounts: []
+
+# -- Init containers
+initContainers: []
+
+# -- Sidecar containers
+sidecars: []
