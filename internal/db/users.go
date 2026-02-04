@@ -144,6 +144,28 @@ func (d *DB) UpdateUserRole(ctx context.Context, userID uuid.UUID, role string) 
 	return err
 }
 
+// UpdateUserRoleFromOIDC persists both the raw OIDC-mapped role and the resolved
+// final role for a user.  mappedRole is the group-derived value (admin | moderator | user);
+// finalRole is what actually goes into the role column (admin | global_mod | org_mod | user).
+func (d *DB) UpdateUserRoleFromOIDC(ctx context.Context, userID uuid.UUID, mappedRole, finalRole string) error {
+	query := `UPDATE users SET role = $1, oidc_mapped_role = $2, updated_at = NOW() WHERE id = $3`
+	_, err := d.Pool.Exec(ctx, query, finalRole, mappedRole, userID)
+	return err
+}
+
+// PromoteOrgModerators sets role = org_mod for every user in orgID whose
+// oidc_mapped_role is "moderator".  This is called once when a new organisation
+// is created so that users who were already mapped to the moderator role but
+// had not yet re-logged-in get the correct org_mod assignment immediately.
+func (d *DB) PromoteOrgModerators(ctx context.Context, orgID uuid.UUID) error {
+	query := `
+		UPDATE users SET role = 'org_mod', updated_at = NOW()
+		WHERE organization_id = $1 AND oidc_mapped_role = 'moderator'
+	`
+	_, err := d.Pool.Exec(ctx, query, orgID)
+	return err
+}
+
 // UpdateUserOrganization updates a user's organization membership.
 func (d *DB) UpdateUserOrganization(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID) error {
 	query := `UPDATE users SET organization_id = $1, updated_at = NOW() WHERE id = $2`

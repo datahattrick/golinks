@@ -154,13 +154,35 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 			}
 
 			if orgSlug != "" {
-				// Get or create the organization
-				org, err := h.db.GetOrCreateOrganization(c.Context(), orgSlug)
+				org, created, err := h.db.GetOrCreateOrganization(c.Context(), orgSlug)
 				if err == nil {
-					// Update user's organization
 					h.db.UpdateUserOrganization(c.Context(), user.ID, &org.ID)
+					user.OrganizationID = &org.ID
+
+					// New org + active group mapping → promote any existing users
+					// in this org who were previously mapped to moderator
+					if created && h.cfg.HasGroupRoleMapping() {
+						if promErr := h.db.PromoteOrgModerators(c.Context(), org.ID); promErr != nil {
+							log.Printf("Warning: failed to promote org moderators for new org %s: %v", orgSlug, promErr)
+						}
+					}
 				}
 			}
+		}
+	}
+
+	// Apply OIDC group-based role mapping when configured.
+	// Admin > moderator > user.  Moderator-mapped users become org_mod when they
+	// belong to an organisation, global_mod otherwise.
+	if h.cfg.HasGroupRoleMapping() {
+		groups := extractGroups(claimsMap, h.cfg.OIDCGroupsClaim)
+		if len(groups) == 0 && h.cfg.IsDev() {
+			log.Printf("Warning: OIDC group role mapping is configured but no groups found in claim '%s'", h.cfg.OIDCGroupsClaim)
+		}
+		mappedRole := resolveRoleFromGroups(groups, h.cfg)
+		finalRole := finalRoleFromMapped(mappedRole, user.OrganizationID != nil)
+		if err := h.db.UpdateUserRoleFromOIDC(c.Context(), user.ID, mappedRole, finalRole); err != nil {
+			log.Printf("Warning: failed to update role from OIDC groups for user %s: %v", sub, err)
 		}
 	}
 
@@ -192,4 +214,68 @@ func generateState() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+// extractGroups pulls a string slice out of a claims map value that may be
+// a []any (most providers) or a bare string.
+func extractGroups(claimsMap map[string]any, claimName string) []string {
+	val, ok := claimsMap[claimName]
+	if !ok {
+		return nil
+	}
+	switch v := val.(type) {
+	case []any:
+		groups := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				groups = append(groups, s)
+			}
+		}
+		return groups
+	case string:
+		if v != "" {
+			return []string{v}
+		}
+	}
+	return nil
+}
+
+// resolveRoleFromGroups returns the highest role implied by the user's OIDC
+// groups: "admin", "moderator", or "user".  This is the intermediate value —
+// the final DB role is determined by finalRoleFromMapped.
+func resolveRoleFromGroups(groups []string, cfg *config.Config) string {
+	groupSet := make(map[string]struct{}, len(groups))
+	for _, g := range groups {
+		groupSet[g] = struct{}{}
+	}
+
+	for _, ag := range cfg.OIDCAdminGroups {
+		if _, ok := groupSet[ag]; ok {
+			return "admin"
+		}
+	}
+	for _, mg := range cfg.OIDCModeratorGroups {
+		if _, ok := groupSet[mg]; ok {
+			return "moderator"
+		}
+	}
+	return "user"
+}
+
+// finalRoleFromMapped converts the intermediate mapped role into the actual
+// role constant stored in the database.  Moderator-mapped users become org_mod
+// when they belong to an organisation (scoped to that org's keywords only) or
+// global_mod when they do not.
+func finalRoleFromMapped(mappedRole string, hasOrg bool) string {
+	switch mappedRole {
+	case "admin":
+		return models.RoleAdmin
+	case "moderator":
+		if hasOrg {
+			return models.RoleOrgMod
+		}
+		return models.RoleGlobalMod
+	default:
+		return models.RoleUser
+	}
 }

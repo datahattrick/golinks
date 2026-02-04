@@ -25,6 +25,15 @@ data:
   {{- if .Values.oidc.orgClaim }}
   OIDC_ORG_CLAIM: {{ .Values.oidc.orgClaim | quote }}
   {{- end }}
+  {{- if .Values.oidc.groupsClaim }}
+  OIDC_GROUPS_CLAIM: {{ .Values.oidc.groupsClaim | quote }}
+  {{- end }}
+  {{- if .Values.oidc.adminGroups }}
+  OIDC_ADMIN_GROUPS: {{ .Values.oidc.adminGroups | quote }}
+  {{- end }}
+  {{- if .Values.oidc.moderatorGroups }}
+  OIDC_MODERATOR_GROUPS: {{ .Values.oidc.moderatorGroups | quote }}
+  {{- end }}
   {{- if .Values.oidc.adminUsers }}
   ADMIN_USERS: {{ .Values.oidc.adminUsers | quote }}
   {{- end }}

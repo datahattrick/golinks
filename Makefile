@@ -1,6 +1,12 @@
 .PHONY: run build test clean dev db-up db-down db-logs docker-up docker-down services-up services-down \
 	test-unit test-integration test-all test-cover test-verbose test-db-setup test-db-teardown
 
+# Auto-load .env file if it exists (vars can still be overridden via command line)
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 # Application
 APP_NAME := golinks
 MAIN_PATH := ./cmd/server
@@ -14,6 +20,11 @@ OIDC_ISSUER ?= http://localhost:8080/golinks
 OIDC_CLIENT_ID ?= golinks-app
 OIDC_CLIENT_SECRET ?= secret
 OIDC_REDIRECT_URL ?= http://localhost:3000/auth/callback
+
+# OIDC group → role mapping (for dev)
+OIDC_GROUPS_CLAIM ?= groups
+OIDC_ADMIN_GROUPS ?= golinks-admin
+OIDC_MODERATOR_GROUPS ?= golinks-moderator
 
 # Default target
 all: build
@@ -185,6 +196,9 @@ dev: services-up
 	OIDC_CLIENT_ID="$(OIDC_CLIENT_ID)" \
 	OIDC_CLIENT_SECRET="$(OIDC_CLIENT_SECRET)" \
 	OIDC_REDIRECT_URL="$(OIDC_REDIRECT_URL)" \
+	OIDC_GROUPS_CLAIM="$(OIDC_GROUPS_CLAIM)" \
+	OIDC_ADMIN_GROUPS="$(OIDC_ADMIN_GROUPS)" \
+	OIDC_MODERATOR_GROUPS="$(OIDC_MODERATOR_GROUPS)" \
 	ENABLE_RANDOM_KEYWORDS="true" \
 	go run $(MAIN_PATH)
 

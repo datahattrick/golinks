@@ -31,6 +31,24 @@ Administrators can manage users at `/admin/users`:
 - Change user roles
 - Delete users
 
+### Automatic Role Assignment (OIDC Groups)
+
+Roles can be automatically derived from OIDC group claims, eliminating manual role management:
+
+```bash
+OIDC_GROUPS_CLAIM=groups
+OIDC_ADMIN_GROUPS=golinks-admin
+OIDC_MODERATOR_GROUPS=golinks-moderator
+```
+
+**Role Resolution (on every login):**
+- Users in `OIDC_ADMIN_GROUPS` → `admin`
+- Users in `OIDC_MODERATOR_GROUPS` with an org → `org_mod` (scoped to their org)
+- Users in `OIDC_MODERATOR_GROUPS` without an org → `global_mod`
+- Others → `user`
+
+**Note:** When group-to-role mapping is enabled, roles are updated on every login. Manual role changes will be overridden the next time the user logs in. If you need manual control, leave `OIDC_ADMIN_GROUPS` and `OIDC_MODERATOR_GROUPS` empty.
+
 ## Organization Management
 
 Organizations are automatically created when:

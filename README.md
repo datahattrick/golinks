@@ -5,6 +5,7 @@ A self-hosted URL shortener for teams. Create memorable short links like `docs` 
 ## Features
 
 - OIDC authentication (Google, Entra, Okta, Keycloak, or a local mock)
+- OIDC group-to-role mapping (auto-assign admin/moderator roles from IdP groups)
 - Multi-tenant with organizations, scoped links, and role-based moderation
 - JSON API at `/api/v1` alongside the HTMX UI
 - Trigram-based fuzzy search

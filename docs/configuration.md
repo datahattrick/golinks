@@ -21,6 +21,30 @@ All settings are configured via environment variables. Copy `.env.example` to `.
 | `OIDC_CLIENT_SECRET` | OIDC client secret | - | If OIDC enabled |
 | `OIDC_REDIRECT_URL` | OAuth callback URL | `http://localhost:3000/auth/callback` | If OIDC enabled |
 | `OIDC_ORG_CLAIM` | Claim name for organization extraction | `organisation` | No |
+| `OIDC_GROUPS_CLAIM` | Claim name for group memberships | `groups` | No |
+| `OIDC_ADMIN_GROUPS` | Comma-separated groups that grant admin role | (none) | No |
+| `OIDC_MODERATOR_GROUPS` | Comma-separated groups that grant moderator role | (none) | No |
+
+### OIDC Group-to-Role Mapping
+
+User roles can be automatically derived from OIDC group claims. This is useful when your IdP manages access via groups (e.g., `golinks-admin`, `golinks-moderator`).
+
+```bash
+OIDC_GROUPS_CLAIM=groups
+OIDC_ADMIN_GROUPS=golinks-admin,superadmins
+OIDC_MODERATOR_GROUPS=golinks-moderator,link-managers
+```
+
+**Role Resolution (on every login):**
+1. If user is in any `OIDC_ADMIN_GROUPS` → `admin`
+2. If user is in any `OIDC_MODERATOR_GROUPS`:
+   - With an organization → `org_mod` (can only moderate their org's links)
+   - Without an organization → `global_mod` (can moderate all links)
+3. Otherwise → `user`
+
+**Auto-promotion:** When a new organization is first seen, existing users in that org who were previously mapped to moderator are automatically promoted to `org_mod`.
+
+**Note:** If neither `OIDC_ADMIN_GROUPS` nor `OIDC_MODERATOR_GROUPS` is set, the feature is disabled entirely and roles remain as manually assigned by admins.
 
 ### Provider Examples
 

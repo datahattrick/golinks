@@ -4,6 +4,13 @@
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="/go/{{.Keyword}}" class="font-mono font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 text-lg transition-colors">{{.Keyword}}</a>
+                {{if eq .Scope "global"}}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" title="Available to everyone">Global</span>
+                {{else if eq .Scope "org"}}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300" title="Organization link">{{if and $.OrgNames .OrganizationID}}{{index $.OrgNames .OrganizationID.String}}{{else}}Org{{end}}</span>
+                {{else if eq .Scope "personal"}}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300" title="Personal shortcut">Personal</span>
+                {{end}}
                 {{if eq .HealthStatus "healthy"}}
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300" title="URL is healthy">
                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">

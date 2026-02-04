@@ -152,17 +152,27 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 		return err
 	}
 
+	// Build org name map for displaying org names on links
+	orgNames := make(map[string]string)
+	if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
+		for _, org := range orgs {
+			orgNames[org.ID.String()] = org.Name
+		}
+	}
+
 	// If HTMX request, return just the list
 	if c.Get("HX-Request") == "true" {
 		return c.Render("partials/links_list", fiber.Map{
-			"Links": links,
-			"User":  user,
+			"Links":    links,
+			"User":     user,
+			"OrgNames": orgNames,
 		}, "")
 	}
 
 	return c.Render("browse", MergeBranding(fiber.Map{
-		"Links": links,
-		"User":  user,
+		"Links":    links,
+		"User":     user,
+		"OrgNames": orgNames,
 	}, h.cfg))
 }
 

@@ -94,14 +94,15 @@ func (d *DB) GetAllOrganizations(ctx context.Context) ([]models.Organization, er
 }
 
 // GetOrCreateOrganization gets an organization by slug, creating it if it doesn't exist.
-func (d *DB) GetOrCreateOrganization(ctx context.Context, slug string) (*models.Organization, error) {
+// The returned bool is true when the organization was newly created by this call.
+func (d *DB) GetOrCreateOrganization(ctx context.Context, slug string) (*models.Organization, bool, error) {
 	// Try to get existing
 	org, err := d.GetOrganizationBySlug(ctx, slug)
 	if err == nil {
-		return org, nil
+		return org, false, nil
 	}
 	if !errors.Is(err, ErrOrgNotFound) {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Create new org with slug as name (can be updated later by admin)
@@ -112,11 +113,11 @@ func (d *DB) GetOrCreateOrganization(ctx context.Context, slug string) (*models.
 	if err := d.CreateOrganization(ctx, org); err != nil {
 		// Handle race condition - another request may have created it
 		if existingOrg, getErr := d.GetOrganizationBySlug(ctx, slug); getErr == nil {
-			return existingOrg, nil
+			return existingOrg, false, nil
 		}
-		return nil, err
+		return nil, false, err
 	}
-	return org, nil
+	return org, true, nil
 }
 
 // SyncOrgFallbackURLs syncs the fallback URLs from config to the database.

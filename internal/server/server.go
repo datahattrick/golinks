@@ -122,7 +122,11 @@ func (s *Server) Start() error {
 		listenConfig := fiber.ListenConfig{
 			CertFile:      s.Cfg.TLSCertFile,
 			CertKeyFile:   s.Cfg.TLSKeyFile,
-			TLSConfigFunc: func(tc *tls.Config) { *tc = *tlsConfig },
+			TLSConfigFunc: func(tc *tls.Config) {
+			tc.MinVersion = tlsConfig.MinVersion
+			tc.ClientCAs = tlsConfig.ClientCAs
+			tc.ClientAuth = tlsConfig.ClientAuth
+		},
 		}
 		if s.Cfg.TLSCAFile != "" {
 			log.Printf("Starting server with mTLS on %s", s.Cfg.ServerAddr)

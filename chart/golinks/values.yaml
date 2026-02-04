@@ -104,6 +104,12 @@ oidc:
   redirectURL: ""
   scopes: "openid profile email"
   orgClaim: ""
+  # Group-to-role mapping (optional)
+  # When configured, user roles are derived from OIDC group claims on every login
+  groupsClaim: "groups"      # Claim name containing group list
+  adminGroups: ""            # Comma-separated groups that grant admin role (e.g., "golinks-admin")
+  moderatorGroups: ""        # Comma-separated groups that grant moderator role (e.g., "golinks-moderator")
+  # Legacy fields (deprecated - use group mapping instead)
   adminUsers: ""
   globalMods: ""
 

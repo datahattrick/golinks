@@ -33,6 +33,9 @@ type Config struct {
 	OIDCClientSecret string
 	OIDCRedirectURL  string
 	OIDCOrgClaim     string // OIDC claim name for organization, e.g. "org", "organization", "tenant"
+	OIDCGroupsClaim     string   // OIDC claim name for group memberships (default: "groups")
+	OIDCAdminGroups     []string // OIDC groups that grant the admin role
+	OIDCModeratorGroups []string // OIDC groups that grant the moderator role (org_mod when user has an org, global_mod otherwise)
 
 	// Session
 	SessionSecret string // Used for signing cookies (min 32 chars)
@@ -88,7 +91,10 @@ func Load() *Config {
 		OIDCClientID:     getEnv("OIDC_CLIENT_ID", ""),
 		OIDCClientSecret: getEnv("OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  getEnv("OIDC_REDIRECT_URL", "http://localhost:3000/auth/callback"),
-		OIDCOrgClaim:     getEnv("OIDC_ORG_CLAIM", "organisation"), // OIDC claim name for organization
+		OIDCOrgClaim:        getEnv("OIDC_ORG_CLAIM", "organisation"), // OIDC claim name for organization
+		OIDCGroupsClaim:     getEnv("OIDC_GROUPS_CLAIM", "groups"),
+		OIDCAdminGroups:     parseStringList(getEnv("OIDC_ADMIN_GROUPS", "")),
+		OIDCModeratorGroups: parseStringList(getEnv("OIDC_MODERATOR_GROUPS", "")),
 		SessionSecret:    getEnv("SESSION_SECRET", "change-me-in-production-min-32-chars"),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
@@ -155,6 +161,28 @@ func (c *Config) IsSimpleMode() bool {
 // IsEmailEnabled returns true if SMTP is configured and enabled.
 func (c *Config) IsEmailEnabled() bool {
 	return c.SMTPEnabled && c.SMTPHost != "" && c.SMTPFrom != ""
+}
+
+// HasGroupRoleMapping returns true if at least one OIDC group is mapped to a role.
+// When false the group-to-role logic is entirely skipped and roles remain as manually set.
+func (c *Config) HasGroupRoleMapping() bool {
+	return len(c.OIDCAdminGroups) > 0 || len(c.OIDCModeratorGroups) > 0
+}
+
+// parseStringList splits a comma-separated string into trimmed, non-empty tokens.
+func parseStringList(val string) []string {
+	if val == "" {
+		return nil
+	}
+	parts := strings.Split(val, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 // parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
