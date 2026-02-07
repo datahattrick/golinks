@@ -55,6 +55,11 @@ func (d *DB) Close() {
 	d.Pool.Close()
 }
 
+// Ping checks database connectivity.
+func (d *DB) Ping(ctx context.Context) error {
+	return d.Pool.Ping(ctx)
+}
+
 // SeedDevLinks inserts test links for development. Skips links that already exist.
 func (d *DB) SeedDevLinks(ctx context.Context) error {
 	links := []struct {

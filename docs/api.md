@@ -1,5 +1,16 @@
 # API Reference
 
+## Probe Endpoints
+
+Kubernetes liveness and readiness probes — no authentication required:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/healthz` | Liveness probe (simple ping) |
+| `GET` | `/readyz` | Readiness probe (checks database connectivity) |
+
+Both return `200 {"status":"ok"}` on success. `/readyz` returns `503 {"status":"error","error":"database unavailable"}` if the database is unreachable.
+
 ## UI Routes (HTMX)
 
 These routes serve the web UI. Partial responses are returned for HTMX requests (`HX-Request: true` header).

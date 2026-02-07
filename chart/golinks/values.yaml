@@ -127,7 +127,7 @@ resources:
 # -- Liveness probe configuration
 livenessProbe:
   httpGet:
-    path: /
+    path: /healthz
     port: http
   initialDelaySeconds: 10
   periodSeconds: 10
@@ -138,7 +138,7 @@ livenessProbe:
 # -- Readiness probe configuration
 readinessProbe:
   httpGet:
-    path: /
+    path: /readyz
     port: http
   initialDelaySeconds: 5
   periodSeconds: 5
@@ -148,6 +148,11 @@ readinessProbe:
 
 # -- Startup probe configuration (for slow-starting containers)
 startupProbe: {}
+  # httpGet:
+  #   path: /readyz
+  #   port: http
+  # failureThreshold: 30
+  # periodSeconds: 10
   # httpGet:
   #   path: /
   #   port: http
@@ -216,6 +221,8 @@ config:
     footer: ""
     # -- URL to logo image
     logoURL: ""
+    # -- Enable animated background (default: false for performance; set to true for animated gradient and floating nodes)
+    animatedBackground: false
 
   # -- Feature toggles
   features:

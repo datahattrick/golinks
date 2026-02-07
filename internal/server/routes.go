@@ -30,6 +30,11 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	healthHandler := handlers.NewHealthHandler(database)
 	userHandler := handlers.NewUserHandler(database, s.Cfg)
 
+	// Kubernetes probe endpoints (no auth required)
+	probeHandler := handlers.NewProbeHandler(database)
+	s.App.Get("/healthz", probeHandler.Liveness)
+	s.App.Get("/readyz", probeHandler.Readiness)
+
 	// Auth routes - OIDC is always required for frontend access
 	if s.Cfg.OIDCIssuer == "" {
 		log.Fatal("OIDC_ISSUER is required. All users must be authenticated.")

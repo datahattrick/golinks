@@ -64,3 +64,31 @@ lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill
 - Verify the OIDC provider returns the expected claims
 - Check that `OIDC_ORG_CLAIM` matches the actual claim name from the provider
 - GoLinks fetches claims from both the ID token and the userinfo endpoint
+
+## 500 Errors on OpenShift / Kubernetes
+
+When deploying to OpenShift or Kubernetes, 500 errors with missing static files can indicate:
+
+1. **Check pod logs first:**
+   ```bash
+   kubectl logs -l app=golinks
+   oc logs -l app=golinks
+   ```
+
+2. **Verify ConfigMap rendered correctly:**
+   ```bash
+   helm template golinks ./chart/golinks --values your-values.yaml | grep -A 20 'kind: ConfigMap'
+   ```
+   Ensure all environment variables have values (not empty strings). Common issues:
+   - Wrong value paths in Helm template (e.g., `config.siteTitle` → `config.branding.title`)
+   - Missing required secrets (`existingSecret` not set)
+
+3. **Confirm image declares non-root USER:**
+   The Dockerfile must include `USER 1001` and set group-0 ownership for OpenShift compatibility:
+   ```dockerfile
+   RUN chown -R 0:0 /app && chmod -R g+rX /app
+   USER 1001
+   ```
+
+4. **Check probe paths:**
+   Liveness and readiness probes must point to `/healthz` and `/readyz` (not `/`), as the root path requires authentication and will redirect to OIDC login.

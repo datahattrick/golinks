@@ -24,6 +24,7 @@ golinks/
 │   │   ├── user_links.go    # Personal link CRUD
 │   │   ├── users.go         # User management (admin)
 │   │   ├── profile.go       # User profile page
+│   │   ├── probe.go         # Kubernetes liveness/readiness probes
 │   │   ├── branding.go      # Site-branding helpers
 │   │   ├── handlers.go      # Shared handler utilities
 │   │   ├── redirect.go      # Keyword → URL redirect
