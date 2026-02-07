@@ -52,10 +52,11 @@ type Config struct {
 	OrgFallbacks map[string]string // Map of org slug to fallback redirect URL, e.g. {"org1": "https://other.com/go/"}
 
 	// Site Branding
-	SiteTitle   string // env: SITE_TITLE, default: "GoLinks"
-	SiteTagline string // env: SITE_TAGLINE, default: "Fast URL shortcuts for your team"
-	SiteFooter  string // env: SITE_FOOTER, default: "GoLinks - Fast URL shortcuts for your team"
-	SiteLogoURL string // env: SITE_LOGO_URL, default: "" (no logo, text only)
+	SiteTitle             string // env: SITE_TITLE, default: "GoLinks"
+	SiteTagline           string // env: SITE_TAGLINE, default: "Fast URL shortcuts for your team"
+	SiteFooter            string // env: SITE_FOOTER, default: "GoLinks - Fast URL shortcuts for your team"
+	SiteLogoURL           string // env: SITE_LOGO_URL, default: "" (no logo, text only)
+	EnableAnimatedBackground bool   // env: ENABLE_ANIMATED_BACKGROUND, default: false (static background for performance)
 
 	// SMTP Email Configuration
 	SMTPEnabled  bool   // Enable email notifications
@@ -106,6 +107,7 @@ func Load() *Config {
 		SiteTagline: getEnv("SITE_TAGLINE", "Fast URL shortcuts for your team"),
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
+		EnableAnimatedBackground: getEnv("ENABLE_ANIMATED_BACKGROUND", "") != "",
 
 		// SMTP Configuration
 		SMTPEnabled:  getEnv("SMTP_ENABLED", "") != "",

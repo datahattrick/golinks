@@ -98,6 +98,7 @@ The mock server provides interactive login — enter any username/password.
 | `SITE_TAGLINE` | Tagline displayed on home page | `Fast URL shortcuts for your team` |
 | `SITE_FOOTER` | Footer text | `GoLinks - Fast URL shortcuts for your team` |
 | `SITE_LOGO_URL` | URL to logo image | (text only if empty) |
+| `ENABLE_ANIMATED_BACKGROUND` | Enable animated gradient and floating nodes | `false` (static background) |
 
 Example:
 ```bash
@@ -105,7 +106,10 @@ SITE_TITLE=MyCompany Links
 SITE_TAGLINE=Internal URL shortcuts for the team
 SITE_LOGO_URL=https://example.com/logo.png
 SITE_FOOTER=Powered by GoLinks
+ENABLE_ANIMATED_BACKGROUND=true  # Enable animations (higher CPU/GPU usage)
 ```
+
+**Note on Animated Background**: The default static background provides the same visual theme without animations for better performance on low-end systems or older browsers. Enable animations for a more dynamic experience if system resources permit.
 
 ## Feature Flags
 
