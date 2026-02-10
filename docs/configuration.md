@@ -111,6 +111,16 @@ ENABLE_ANIMATED_BACKGROUND=true  # Enable animations (higher CPU/GPU usage)
 
 **Note on Animated Background**: The default static background provides the same visual theme without animations for better performance on low-end systems or older browsers. Enable animations for a more dynamic experience if system resources permit.
 
+## Logging
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, `error` | `info` |
+
+All application logs use Go's `log/slog` structured logger and are written to **stderr**. The Fiber request logger also writes to stderr so that container log collectors capture both streams.
+
+Set `LOG_LEVEL=debug` to see detailed startup diagnostics and middleware registration.
+
 ## Feature Flags
 
 | Variable | Description | Default |

@@ -2,7 +2,8 @@ package server
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 
 	"golinks/internal/db"
 	"golinks/internal/email"
@@ -37,7 +38,8 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 
 	// Auth routes - OIDC is always required for frontend access
 	if s.Cfg.OIDCIssuer == "" {
-		log.Fatal("OIDC_ISSUER is required. All users must be authenticated.")
+		slog.Error("OIDC_ISSUER is required, all users must be authenticated")
+		os.Exit(1)
 	}
 
 	authHandler, err := handlers.NewAuthHandler(ctx, s.Cfg, database)
@@ -90,8 +92,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	// Redirect API routes - auth depends on mode
 	// In simple mode (no personal/org links), redirect API doesn't require auth
 	if s.Cfg.IsSimpleMode() {
-		log.Println("Running in simple mode (personal and org links disabled)")
-		log.Println("Redirect API (/go/:keyword) does not require authentication")
+		slog.Info("running in simple mode, redirect API does not require authentication")
 		s.App.Get("/go/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
 		s.App.Get("/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
 	} else {

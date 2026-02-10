@@ -12,6 +12,7 @@ A self-hosted URL shortener for teams. Create memorable short links like `docs` 
 - URL health monitoring with email alerts
 - Click tracking with 24-hour sparkline graphs
 - Per-org fallback redirects and tier-based group resolution
+- Structured logging with configurable log levels
 - Helm chart with OpenShift support
 - Dark mode
 

@@ -8,6 +8,7 @@ data:
   SERVER_ADDR: {{ .Values.config.serverAddr | quote }}
   BASE_URL: {{ .Values.config.baseURL | quote }}
   ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
   SITE_TITLE: {{ .Values.config.branding.title | quote }}
   SITE_TAGLINE: {{ .Values.config.branding.tagline | quote }}
   SITE_FOOTER: {{ .Values.config.branding.footer | quote }}

@@ -211,6 +211,9 @@ config:
   # -- Environment (development, production)
   environment: "production"
 
+  # -- Log level (debug, info, warn, error)
+  logLevel: "info"
+
   # -- Site branding
   branding:
     # -- Site title displayed in header

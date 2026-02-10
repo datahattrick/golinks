@@ -65,9 +65,40 @@ lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill
 - Check that `OIDC_ORG_CLAIM` matches the actual claim name from the provider
 - GoLinks fetches claims from both the ID token and the userinfo endpoint
 
+## No Request Logs Visible
+
+If you see application startup messages but no per-request log lines, the Fiber request logger may be writing to a stream your log collector is not capturing.
+
+GoLinks writes **all** logs (application + request) to **stderr**. Ensure your log collector captures stderr. You can also increase verbosity:
+
+```bash
+LOG_LEVEL=debug
+```
+
+## 500 Errors on Static Files
+
+Static file requests returning 500 errors typically indicate middleware ordering or session issues. The error handler logs every error with structured context (status, method, path, IP, error message) to stderr.
+
+1. **Check pod logs for error details:**
+   ```bash
+   kubectl logs -l app=golinks
+   oc logs -l app=golinks
+   ```
+   Look for lines like `level=ERROR msg="request error" path=/static/...`.
+
+2. **Enable debug logging** to see middleware registration and request details:
+   ```bash
+   LOG_LEVEL=debug
+   ```
+
+3. **Verify the static directory exists** inside the container:
+   ```bash
+   kubectl exec deploy/golinks -- ls -la /app/static/
+   ```
+
 ## 500 Errors on OpenShift / Kubernetes
 
-When deploying to OpenShift or Kubernetes, 500 errors with missing static files can indicate:
+When deploying to OpenShift or Kubernetes, 500 errors can indicate:
 
 1. **Check pod logs first:**
    ```bash

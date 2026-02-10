@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -48,20 +48,67 @@ func New(cfg *config.Config) *Server {
 				message = e.Message
 			}
 
-			return c.Status(code).Render("error", fiber.Map{
-				"Title":       "Error",
-				"Message":     message,
-				"SiteTitle":   cfg.SiteTitle,
-				"SiteTagline": cfg.SiteTagline,
-				"SiteFooter":  cfg.SiteFooter,
-				"SiteLogoURL": cfg.SiteLogoURL,
+			slog.Error("request error",
+				"status", code,
+				"method", c.Method(),
+				"path", c.Path(),
+				"ip", c.IP(),
+				"error", err.Error(),
+			)
+
+			// For API requests, static files, and non-HTML clients, return JSON
+			if strings.HasPrefix(c.Path(), "/api/") ||
+				strings.HasPrefix(c.Path(), "/static/") ||
+				!strings.Contains(c.Get("Accept"), "text/html") {
+				return c.Status(code).JSON(fiber.Map{
+					"status": "error",
+					"error":  message,
+				})
+			}
+
+			// Render HTML error page; fall back to plain text if template fails
+			renderErr := c.Status(code).Render("error", fiber.Map{
+				"Title":                    "Error",
+				"Message":                  message,
+				"SiteTitle":                cfg.SiteTitle,
+				"SiteTagline":              cfg.SiteTagline,
+				"SiteFooter":               cfg.SiteFooter,
+				"SiteLogoURL":              cfg.SiteLogoURL,
+				"EnableAnimatedBackground": cfg.EnableAnimatedBackground,
 			})
+			if renderErr != nil {
+				slog.Error("failed to render error template",
+					"render_error", renderErr.Error(),
+					"original_error", err.Error(),
+				)
+				return c.Status(code).SendString(message)
+			}
+			return nil
 		},
 	})
 
-	// Global middleware
-	app.Use(recover.New())
-	app.Use(logger.New())
+	// --- Middleware applied to ALL routes (including static) ---
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	}))
+	app.Use(logger.New(logger.Config{
+		// Write to stderr so container log collectors capture Fiber request logs
+		// alongside slog output (which also writes to stderr).
+		Stream:     os.Stderr,
+		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${error}\n",
+		TimeFormat: "2006-01-02 15:04:05",
+	}))
+
+	// Static files - registered BEFORE session/cookie/rate-limit middleware.
+	// This prevents 500 errors caused by cookie decryption or session
+	// initialization failures on asset requests.
+	app.Get("/static/*", static.New("./static", static.Config{
+		MaxAge: 3600,
+	}))
+
+	slog.Debug("static file middleware registered", "root", "./static")
+
+	// --- Middleware applied only to dynamic routes (registered after static) ---
 
 	// CORS middleware
 	corsOrigins := cfg.BaseURL
@@ -98,6 +145,7 @@ func New(cfg *config.Config) *Server {
 			return c.IP()
 		},
 		LimitReached: func(c fiber.Ctx) error {
+			slog.Warn("rate limit exceeded", "ip", c.IP(), "path", c.Path())
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"error": "Rate limit exceeded. Please try again later.",
 			})
@@ -105,9 +153,6 @@ func New(cfg *config.Config) *Server {
 		SkipFailedRequests:     false,
 		SkipSuccessfulRequests: false,
 	}))
-
-	// Static files
-	app.Get("/static/*", static.New("./static"))
 
 	return &Server{
 		App: app,
@@ -120,18 +165,18 @@ func (s *Server) Start() error {
 	if s.Cfg.TLSEnabled {
 		tlsConfig := buildTLSConfig(s.Cfg)
 		listenConfig := fiber.ListenConfig{
-			CertFile:      s.Cfg.TLSCertFile,
-			CertKeyFile:   s.Cfg.TLSKeyFile,
+			CertFile:    s.Cfg.TLSCertFile,
+			CertKeyFile: s.Cfg.TLSKeyFile,
 			TLSConfigFunc: func(tc *tls.Config) {
-			tc.MinVersion = tlsConfig.MinVersion
-			tc.ClientCAs = tlsConfig.ClientCAs
-			tc.ClientAuth = tlsConfig.ClientAuth
-		},
+				tc.MinVersion = tlsConfig.MinVersion
+				tc.ClientCAs = tlsConfig.ClientCAs
+				tc.ClientAuth = tlsConfig.ClientAuth
+			},
 		}
 		if s.Cfg.TLSCAFile != "" {
-			log.Printf("Starting server with mTLS on %s", s.Cfg.ServerAddr)
+			slog.Info("starting server with mTLS", "addr", s.Cfg.ServerAddr)
 		} else {
-			log.Printf("Starting server with TLS on %s", s.Cfg.ServerAddr)
+			slog.Info("starting server with TLS", "addr", s.Cfg.ServerAddr)
 		}
 		return s.App.Listen(s.Cfg.ServerAddr, listenConfig)
 	}
@@ -158,12 +203,14 @@ func buildTLSConfig(cfg *config.Config) *tls.Config {
 	if cfg.TLSCAFile != "" {
 		caCert, err := os.ReadFile(cfg.TLSCAFile)
 		if err != nil {
-			log.Fatalf("Failed to read CA file: %v", err)
+			slog.Error("failed to read CA file", "path", cfg.TLSCAFile, "error", err)
+			os.Exit(1)
 		}
 
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM(caCert) {
-			log.Fatal("Failed to parse CA certificate")
+			slog.Error("failed to parse CA certificate", "path", cfg.TLSCAFile)
+			os.Exit(1)
 		}
 
 		tlsConfig.ClientCAs = caCertPool

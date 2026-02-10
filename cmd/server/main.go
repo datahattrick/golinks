@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,34 +20,53 @@ func main() {
 	ctx := context.Background()
 	cfg := config.Load()
 
+	// Initialize structured logger
+	initLogger(cfg.LogLevel)
+
+	// Log startup configuration (omit secrets)
+	slog.Info("configuration loaded",
+		"env", cfg.Env,
+		"addr", cfg.ServerAddr,
+		"base_url", cfg.BaseURL,
+		"tls_enabled", cfg.TLSEnabled,
+		"oidc_issuer", cfg.OIDCIssuer,
+		"personal_links", cfg.EnablePersonalLinks,
+		"org_links", cfg.EnableOrgLinks,
+		"simple_mode", cfg.IsSimpleMode(),
+		"smtp_enabled", cfg.IsEmailEnabled(),
+		"log_level", cfg.LogLevel,
+	)
+
 	// Initialize database
 	database, err := db.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer database.Close()
 
 	// Run migrations
 	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Migrations completed successfully")
+	slog.Info("migrations completed successfully")
 
 	// Sync organization fallback URLs from config
 	if len(cfg.OrgFallbacks) > 0 {
 		if err := database.SyncOrgFallbackURLs(ctx, cfg.OrgFallbacks); err != nil {
-			log.Printf("Warning: Failed to sync org fallback URLs: %v", err)
+			slog.Warn("failed to sync org fallback URLs", "error", err)
 		} else {
-			log.Printf("Synced %d organization fallback URL(s)", len(cfg.OrgFallbacks))
+			slog.Info("synced organization fallback URLs", "count", len(cfg.OrgFallbacks))
 		}
 	}
 
 	// Seed dev links in development mode
 	if cfg.IsDev() {
 		if err := database.SeedDevLinks(ctx); err != nil {
-			log.Printf("Warning: Failed to seed dev links: %v", err)
+			slog.Warn("failed to seed dev links", "error", err)
 		} else {
-			log.Println("Development seed links loaded")
+			slog.Info("development seed links loaded")
 		}
 	}
 
@@ -60,7 +79,8 @@ func main() {
 
 	// Register routes
 	if err := srv.RegisterRoutes(ctx, database); err != nil {
-		log.Fatalf("Failed to register routes: %v", err)
+		slog.Error("failed to register routes", "error", err)
+		os.Exit(1)
 	}
 
 	// Start background health checker
@@ -70,13 +90,13 @@ func main() {
 	// Start server
 	go func() {
 		if err := srv.Start(); err != nil {
-			log.Printf("Server error: %v", err)
+			slog.Error("server error", "error", err)
 		}
 	}()
 
-	log.Printf("Server started on %s", cfg.ServerAddr)
+	slog.Info("server started", "addr", cfg.ServerAddr)
 	if cfg.ClientCertHeader != "" {
-		log.Printf("Accepting client cert via header: %s", cfg.ClientCertHeader)
+		slog.Info("accepting client cert via header", "header", cfg.ClientCertHeader)
 	}
 
 	// Wait for shutdown signal
@@ -84,9 +104,30 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	slog.Info("shutting down server...")
 	if err := srv.Shutdown(); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		slog.Error("server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Server exited")
+	slog.Info("server exited")
+}
+
+// initLogger configures the default slog logger with the given level.
+func initLogger(level string) {
+	var logLevel slog.Level
+	switch level {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelInfo
+	}
+
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: logLevel,
+	})
+	slog.SetDefault(slog.New(handler))
 }

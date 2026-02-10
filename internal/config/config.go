@@ -58,6 +58,9 @@ type Config struct {
 	SiteLogoURL           string // env: SITE_LOGO_URL, default: "" (no logo, text only)
 	EnableAnimatedBackground bool   // env: ENABLE_ANIMATED_BACKGROUND, default: false (static background for performance)
 
+	// Logging
+	LogLevel string // "debug", "info", "warn", "error" (default: "info")
+
 	// SMTP Email Configuration
 	SMTPEnabled  bool   // Enable email notifications
 	SMTPHost     string // SMTP server hostname
@@ -108,6 +111,9 @@ func Load() *Config {
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
 		EnableAnimatedBackground: getEnv("ENABLE_ANIMATED_BACKGROUND", "") != "",
+
+		// Logging
+		LogLevel: strings.ToLower(getEnv("LOG_LEVEL", "info")),
 
 		// SMTP Configuration
 		SMTPEnabled:  getEnv("SMTP_ENABLED", "") != "",
