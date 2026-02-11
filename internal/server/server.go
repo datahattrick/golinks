@@ -18,7 +18,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/fiber/v3/middleware/static"
-	"github.com/gofiber/template/html/v2"
+	"github.com/gofiber/template/html/v3"
 
 	"golinks/internal/config"
 )
