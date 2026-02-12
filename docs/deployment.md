@@ -57,12 +57,14 @@ docker compose --profile full up -d
 git clone https://github.com/datahattrick/golinks.git
 cd golinks
 go mod download
-go build -o golinks ./cmd/server
+make build   # Downloads Tailwind CLI, builds CSS, then compiles Go binary
 
 export DATABASE_URL="postgres://golinks:golinks@localhost:5432/golinks"
 export SESSION_SECRET="your-32-character-secret-here"
 ./golinks
 ```
+
+> **Note:** `make build` automatically downloads the Tailwind standalone CLI (to `bin/`) and regenerates `static/css/tailwind.css` before compiling the Go binary. The generated CSS is also committed to the repo, so `go build ./cmd/server` works without the Tailwind CLI if you haven't changed any templates.
 
 ## Helm Chart (Kubernetes / OpenShift)
 

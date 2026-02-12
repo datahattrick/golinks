@@ -55,11 +55,16 @@ golinks/
 │   │   └── main.html        # Base layout with HTMX script
 │   └── partials/            # HTMX partial templates
 ├── static/
-│   ├── css/                 # Stylesheets (fonts.css, style.css)
-│   ├── js/                  # Vendored JS (htmx.min.js, tailwind.min.js)
+│   ├── css/                 # Stylesheets
+│   │   ├── tailwind.css     # Generated Tailwind output (committed)
+│   │   ├── tailwind-input.css # Tailwind directives (input file)
+│   │   ├── style.css        # HTMX loading states + transitions
+│   │   └── fonts.css        # @font-face rules (local WOFF2)
+│   ├── js/                  # Vendored JS (htmx.min.js)
 │   ├── fonts/               # Vendored WOFF2 fonts (Inter, JetBrains Mono)
 │   └── favicon.svg          # Site favicon
 ├── chart/golinks/           # Helm chart for Kubernetes/OpenShift
+├── tailwind.config.js       # Tailwind v3 config (content paths, theme)
 ├── Dockerfile               # Multi-stage Docker build
 ├── docker-compose.yml       # Local development stack
 ├── Makefile                 # Build and development commands
@@ -71,7 +76,7 @@ golinks/
 | Component | Technology |
 |-----------|------------|
 | Backend | Go, Fiber v3, pgx v5 |
-| Frontend | HTMX, Tailwind CSS (vendored) |
+| Frontend | HTMX, Tailwind CSS v3 (build-time CLI) |
 | Database | PostgreSQL with trigram search |
 | Authentication | OpenID Connect (go-oidc v3) |
 | Migrations | golang-migrate with embedded SQL |
@@ -85,8 +90,12 @@ make dev              # Start services + run app with OIDC
 make dev-no-auth      # Start db only + run app without OIDC
 
 # Build
-make build            # Build binary
+make build            # Build CSS + binary
 make clean            # Remove build artifacts
+
+# Tailwind CSS
+make css              # Build production CSS
+make css-watch        # Watch and rebuild CSS on template changes
 
 # Database
 make db-up            # Start PostgreSQL

@@ -32,7 +32,7 @@ Visit [http://localhost:3000](http://localhost:3000) and click **Login**. The mo
 | Component | Technology |
 |-----------|------------|
 | Backend | Go, Fiber v3, pgx v5 |
-| Frontend | HTMX, Tailwind CSS (vendored) |
+| Frontend | HTMX, Tailwind CSS v3 (build-time CLI) |
 | Database | PostgreSQL with trigram search |
 | Auth | OpenID Connect (go-oidc v3) |
 | Migrations | golang-migrate (embedded SQL) |
