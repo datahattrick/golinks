@@ -106,5 +106,5 @@ func (h *UserLinkHandler) Delete(c fiber.Ctx) error {
 	}
 
 	// Return empty for HTMX to remove the element
-	return c.SendStatus(fiber.StatusOK)
+	return c.SendString("")
 }

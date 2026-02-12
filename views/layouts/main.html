@@ -6,6 +6,8 @@
     <title>{{if .Title}}{{.Title}} - {{end}}{{if .SiteTitle}}{{.SiteTitle}}{{else}}GoLinks{{end}}</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/css/fonts.css">
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/htmx.min.js"></script>
     <script>
         // Dark mode (before any rendering)
@@ -14,50 +16,7 @@
         } else {
             document.documentElement.classList.remove('dark')
         }
-        // Tailwind config (must be defined before tailwind.min.js loads)
-        tailwind = {
-            config: {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            sans: ['Inter', 'system-ui', 'sans-serif'],
-                            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-                        },
-                        colors: {
-                            brand: {
-                                50: '#ecfeff',
-                                100: '#cffafe',
-                                200: '#a5f3fc',
-                                300: '#67e8f9',
-                                400: '#22d3ee',
-                                500: '#06b6d4',
-                                600: '#0891b2',
-                                700: '#0e7490',
-                                800: '#155e75',
-                                900: '#164e63',
-                                950: '#083344',
-                            }
-                        },
-                        animation: {
-                            'float': 'float 20s ease-in-out infinite',
-                            'float-delayed': 'float 25s ease-in-out infinite reverse',
-                            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        },
-                        keyframes: {
-                            float: {
-                                '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
-                                '25%': { transform: 'translate(10px, -15px) rotate(1deg)' },
-                                '50%': { transform: 'translate(-5px, 10px) rotate(-1deg)' },
-                                '75%': { transform: 'translate(-15px, -5px) rotate(0.5deg)' },
-                            }
-                        }
-                    }
-                }
-            }
-        }
     </script>
-    <script src="/static/js/tailwind.min.js"></script>
     <style>
         {{if .EnableAnimatedBackground}}
         /* Animated gradient background */
@@ -209,11 +168,11 @@
 
         /* Glass morphism cards */
         .glass-card {
-            background: rgba(255, 255, 255, 0.72);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
         }
         .dark .glass-card {
             background: rgba(15, 23, 42, 0.72);
@@ -294,6 +253,11 @@
 
     <!-- Content wrapper -->
     <div class="relative z-10 min-h-full flex flex-col">
+        {{if .BannerText}}
+        <div class="text-center px-4 py-1 text-xs font-medium" style="background-color: {{.BannerBGColor}}; color: {{.BannerTextColor}}">
+            {{.BannerText}}
+        </div>
+        {{end}}
         {{template "partials/navbar" .}}
 
         <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
@@ -301,8 +265,30 @@
         </main>
 
         <footer class="relative z-10 text-center py-5 px-4 border-t border-gray-200/30 dark:border-gray-700/30">
-            <p class="text-sm text-gray-400 dark:text-gray-500">{{if .SiteFooter}}{{.SiteFooter}}{{else}}GoLinks &middot; Fast URL shortcuts for your team{{end}}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-500">{{if .SiteFooter}}{{.SiteFooter}}{{else}}GoLinks &middot; Fast URL shortcuts for your team{{end}}</p>
         </footer>
+    </div>
+
+    <!-- Confirm dialog -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-gray-900/50 dark:bg-black/60 backdrop-blur-sm" id="confirm-backdrop"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Confirm</h3>
+                </div>
+                <p id="confirm-message" class="text-gray-700 dark:text-gray-300 mb-6"></p>
+                <div class="flex justify-end gap-3">
+                    <button id="confirm-cancel" class="px-4 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">Cancel</button>
+                    <button id="confirm-ok" class="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 shadow-sm transition-colors">Confirm</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -335,6 +321,43 @@
             if (menuIcon) menuIcon.classList.toggle('hidden');
             if (closeIcon) closeIcon.classList.toggle('hidden');
         }
+
+        // Custom confirm dialog for HTMX
+        (function() {
+            var modal = document.getElementById('confirm-modal');
+            var message = document.getElementById('confirm-message');
+            var okBtn = document.getElementById('confirm-ok');
+            var cancelBtn = document.getElementById('confirm-cancel');
+            var backdrop = document.getElementById('confirm-backdrop');
+
+            function hideModal() {
+                modal.classList.add('hidden');
+            }
+
+            document.addEventListener('htmx:confirm', function(e) {
+                if (!e.detail.question) return;
+                e.preventDefault();
+                message.textContent = e.detail.question;
+                modal.classList.remove('hidden');
+
+                var onConfirm, onCancel, onKey;
+                function cleanup() {
+                    okBtn.removeEventListener('click', onConfirm);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    backdrop.removeEventListener('click', onCancel);
+                    document.removeEventListener('keydown', onKey);
+                }
+                onConfirm = function() { cleanup(); hideModal(); e.detail.issueRequest(true); };
+                onCancel = function() { cleanup(); hideModal(); };
+                onKey = function(ke) { if (ke.key === 'Escape') onCancel(); else if (ke.key === 'Enter') onConfirm(); };
+
+                okBtn.addEventListener('click', onConfirm);
+                cancelBtn.addEventListener('click', onCancel);
+                backdrop.addEventListener('click', onCancel);
+                document.addEventListener('keydown', onKey);
+                okBtn.focus();
+            });
+        })();
     </script>
 </body>
 </html>

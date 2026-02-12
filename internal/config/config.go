@@ -58,6 +58,11 @@ type Config struct {
 	SiteLogoURL           string // env: SITE_LOGO_URL, default: "" (no logo, text only)
 	EnableAnimatedBackground bool   // env: ENABLE_ANIMATED_BACKGROUND, default: false (static background for performance)
 
+	// Banner
+	BannerText    string // env: BANNER_TEXT, default: "" (no banner)
+	BannerTextColor string // env: BANNER_TEXT_COLOR, default: "#ffffff"
+	BannerBGColor   string // env: BANNER_BG_COLOR, default: "#0891b2" (brand-600)
+
 	// Logging
 	LogLevel string // "debug", "info", "warn", "error" (default: "info")
 
@@ -111,6 +116,10 @@ func Load() *Config {
 		SiteFooter:  getEnv("SITE_FOOTER", "GoLinks - Fast URL shortcuts for your team"),
 		SiteLogoURL: getEnv("SITE_LOGO_URL", ""),
 		EnableAnimatedBackground: getEnv("ENABLE_ANIMATED_BACKGROUND", "") != "",
+
+		BannerText:      getEnv("BANNER_TEXT", ""),
+		BannerTextColor: getEnv("BANNER_TEXT_COLOR", "#ffffff"),
+		BannerBGColor:   getEnv("BANNER_BG_COLOR", "#0891b2"),
 
 		// Logging
 		LogLevel: strings.ToLower(getEnv("LOG_LEVEL", "info")),

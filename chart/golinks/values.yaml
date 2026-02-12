@@ -227,6 +227,15 @@ config:
     # -- Enable animated background (default: false for performance; set to true for animated gradient and floating nodes)
     animatedBackground: false
 
+  # -- Site banner (displayed at the top of every page when text is set)
+  banner:
+    # -- Banner text (leave empty to disable)
+    text: ""
+    # -- Banner text color
+    textColor: "#ffffff"
+    # -- Banner background color
+    bgColor: "#0891b2"
+
   # -- Feature toggles
   features:
     # -- Enable "I'm Feeling Lucky" random link feature

@@ -41,12 +41,11 @@ These routes serve the web UI. Partial responses are returned for HTMX requests 
 | `DELETE` | `/admin/users/:id` | Admin | Delete user |
 | `GET` | `/random` | Required | Redirect to a random link |
 | `GET` | `/go/:keyword` | See note | Redirect to URL |
-| `GET` | `/:keyword` | See note | Short redirect |
 | `GET` | `/auth/login` | None | Initiate OIDC login |
 | `GET` | `/auth/callback` | None | OIDC callback |
 | `GET` | `/auth/logout` | Required | Log out |
 
-> In simple mode (personal and org links disabled), `/go/:keyword` does not require authentication.
+> In simple mode (personal and org links disabled), `/go/:keyword` does not require authentication. The `/:keyword` shorthand was removed to prevent real endpoints from blocking keywords — use `/go/:keyword` for all redirects.
 
 ## JSON API (`/api/v1`)
 

@@ -102,6 +102,11 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 		return err
 	}
 
+	// Preserve groups from the ID token before merging userinfo claims.
+	// Many providers (Keycloak, Azure AD, etc.) include groups only in the
+	// ID token, not the userinfo endpoint response.
+	idTokenGroups := extractGroups(claimsMap, h.cfg.OIDCGroupsClaim)
+
 	// Also fetch userinfo endpoint to get additional claims (email, org, etc.)
 	// Some OIDC providers only include minimal claims in the ID token
 	userInfo, err := h.provider.UserInfo(c.Context(), oauth2.StaticTokenSource(oauth2Token))
@@ -176,6 +181,10 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	// belong to an organisation, global_mod otherwise.
 	if h.cfg.HasGroupRoleMapping() {
 		groups := extractGroups(claimsMap, h.cfg.OIDCGroupsClaim)
+		// Fall back to ID token groups if the userinfo merge overwrote them
+		if len(groups) == 0 {
+			groups = idTokenGroups
+		}
 		if len(groups) == 0 && h.cfg.IsDev() {
 			log.Printf("Warning: OIDC group role mapping is configured but no groups found in claim '%s'", h.cfg.OIDCGroupsClaim)
 		}

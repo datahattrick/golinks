@@ -16,6 +16,11 @@ data:
   {{- if .Values.config.branding.animatedBackground }}
   ENABLE_ANIMATED_BACKGROUND: "true"
   {{- end }}
+  {{- if .Values.config.banner.text }}
+  BANNER_TEXT: {{ .Values.config.banner.text | quote }}
+  BANNER_TEXT_COLOR: {{ .Values.config.banner.textColor | quote }}
+  BANNER_BG_COLOR: {{ .Values.config.banner.bgColor | quote }}
+  {{- end }}
   ENABLE_RANDOM_KEYWORDS: {{ .Values.config.features.randomKeywords | quote }}
   ENABLE_PERSONAL_LINKS: {{ .Values.config.features.personalLinks | quote }}
   ENABLE_ORG_LINKS: {{ .Values.config.features.orgLinks | quote }}

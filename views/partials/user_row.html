@@ -13,12 +13,12 @@
             <div>
                 <div class="font-medium text-gray-900 dark:text-white">{{.UserRow.Name}}</div>
                 {{if .UserRow.Username}}
-                <div class="text-xs text-gray-500 dark:text-gray-400">@{{.UserRow.Username}}</div>
+                <div class="text-xs text-gray-700 dark:text-gray-400">@{{.UserRow.Username}}</div>
                 {{end}}
             </div>
         </div>
     </td>
-    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400">
         {{.UserRow.Email}}
     </td>
     <td class="px-4 py-3 whitespace-nowrap">
@@ -48,7 +48,7 @@
             {{end}}
         </select>
     </td>
-    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400">
         {{.UserRow.CreatedAt.Format "Jan 2, 2006"}}
     </td>
     <td class="px-4 py-3 whitespace-nowrap">
@@ -62,7 +62,7 @@
             Delete
         </button>
         {{else}}
-        <span class="text-gray-400 dark:text-gray-500 text-sm">—</span>
+        <span class="text-gray-600 dark:text-gray-500 text-sm">—</span>
         {{end}}
     </td>
 </tr>

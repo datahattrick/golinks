@@ -20,18 +20,18 @@
                 <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">personal</span>
             </div>
             {{if .Description}}
-            <p class="text-gray-600 dark:text-gray-300 mt-1">{{.Description}}</p>
+            <p class="text-gray-800 dark:text-gray-300 mt-1">{{.Description}}</p>
             {{end}}
-            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2 truncate">{{.URL}}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-500 mt-2 truncate">{{.URL}}</p>
         </div>
         <div class="flex items-center gap-4 ml-4 flex-shrink-0">
-            <span class="text-sm font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
+            <span class="text-sm font-mono text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
             <button
                 class="text-xs px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all font-medium"
                 hx-delete="/my-links/{{.ID}}"
                 hx-target="#user-link-{{.ID}}"
-                hx-swap="outerHTML"
-                hx-confirm="Remove this link?">
+                hx-swap="outerHTML swap:300ms"
+                hx-confirm="Remove this personal link?">
                 Remove
             </button>
         </div>
@@ -42,7 +42,7 @@
     <svg class="w-20 h-20 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
     </svg>
-    <p class="text-gray-500 dark:text-gray-400 text-lg">No personal links yet</p>
-    <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">Create a personal link to customize where a keyword takes you</p>
+    <p class="text-gray-700 dark:text-gray-400 text-lg">No personal links yet</p>
+    <p class="text-gray-600 dark:text-gray-500 text-sm mt-2">Create a personal link to customize where a keyword takes you</p>
 </div>
 {{end}}

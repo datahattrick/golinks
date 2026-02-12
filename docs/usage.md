@@ -36,14 +36,13 @@ Type in the search box for instant results via HTMX. Search matches against keyw
 
 ## Redirects
 
-Links are accessible via two URL patterns:
+Links are accessed via the `/go/:keyword` URL pattern:
 
 | Pattern | Example |
 |---------|---------|
 | `/go/:keyword` | `http://go.example.com/go/docs` |
-| `/:keyword` | `http://go.example.com/docs` |
 
-Both patterns redirect (HTTP 302) to the same destination. The JSON API endpoint `/api/v1/resolve/:keyword` returns the URL without redirecting.
+This redirects (HTTP 302) to the destination URL. The JSON API endpoint `/api/v1/resolve/:keyword` returns the URL without redirecting.
 
 ## Click Tracking
 

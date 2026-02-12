@@ -6,12 +6,12 @@
 <tr id="link-{{.Link.ID}}" class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
     <td class="py-3 pr-4">
         <a href="/go/{{.Link.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{{.Link.Keyword}}</a>
-        {{if .Link.Description}}<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{.Link.Description}}</p>{{end}}
+        {{if .Link.Description}}<p class="text-sm text-gray-700 dark:text-gray-400 mt-0.5">{{.Link.Description}}</p>{{end}}
     </td>
     <td class="py-3 pr-4 max-w-xs truncate">
-        <a href="{{.Link.URL}}" target="_blank" rel="noopener" class="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">{{.Link.URL}}</a>
+        <a href="{{.Link.URL}}" target="_blank" rel="noopener" class="text-sm text-gray-800 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">{{.Link.URL}}</a>
     </td>
-    <td class="py-3 text-right font-mono text-sm text-gray-500 dark:text-gray-400">{{.Link.ClickCount}}</td>
+    <td class="py-3 text-right font-mono text-sm text-gray-700 dark:text-gray-400">{{.Link.ClickCount}}</td>
     {{if .User}}
     <td class="py-3 pl-4 text-right">
         {{if .Link.CreatedBy}}

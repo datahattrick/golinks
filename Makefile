@@ -1,5 +1,6 @@
 .PHONY: run build test clean dev db-up db-down db-logs docker-up docker-down services-up services-down \
-	test-unit test-integration test-all test-cover test-verbose test-db-setup test-db-teardown
+	test-unit test-integration test-all test-cover test-verbose test-db-setup test-db-teardown \
+	css css-watch
 
 # Auto-load .env file if it exists (vars can still be overridden via command line)
 ifneq (,$(wildcard ./.env))
@@ -14,6 +15,12 @@ MAIN_PATH := ./cmd/server
 # Database (matches docker-compose)
 DATABASE_URL ?= postgres://golinks:golinks@localhost:5432/golinks?sslmode=disable
 TEST_DATABASE_URL ?= postgres://golinks:golinks@localhost:5432/golinks_test?sslmode=disable
+
+# Tailwind CSS (standalone CLI v3)
+TAILWIND_VERSION := v3.4.17
+TAILWIND_OS := $(shell uname -s | tr A-Z a-z)
+TAILWIND_ARCH := $(shell uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')
+TAILWIND_BIN := bin/tailwindcss
 
 # OIDC (matches docker-compose mock server)
 OIDC_ISSUER ?= http://localhost:8080/golinks
@@ -33,9 +40,28 @@ all: build
 run:
 	go run $(MAIN_PATH)
 
-# Build the binary
-build:
+# Build the binary (rebuilds CSS first)
+build: css
 	go build -o $(APP_NAME) $(MAIN_PATH)
+
+# ============================================================================
+# Tailwind CSS
+# ============================================================================
+
+# Download the Tailwind standalone CLI if not present
+$(TAILWIND_BIN):
+	@mkdir -p bin
+	@echo "Downloading Tailwind CSS CLI $(TAILWIND_VERSION) ($(TAILWIND_OS)-$(TAILWIND_ARCH))..."
+	curl -sLo $(TAILWIND_BIN) https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-$(TAILWIND_OS)-$(TAILWIND_ARCH)
+	chmod +x $(TAILWIND_BIN)
+
+# Build minified production CSS
+css: $(TAILWIND_BIN)
+	$(TAILWIND_BIN) -i static/css/tailwind-input.css -o static/css/tailwind.css --minify
+
+# Watch mode for development (rebuilds on template changes)
+css-watch: $(TAILWIND_BIN)
+	$(TAILWIND_BIN) -i static/css/tailwind-input.css -o static/css/tailwind.css --watch
 
 # ============================================================================
 # Testing Targets
@@ -128,6 +154,7 @@ test-middleware:
 # Clean build artifacts
 clean:
 	rm -f $(APP_NAME) coverage.out coverage.html
+	rm -rf bin/
 
 # Tidy dependencies
 tidy:
@@ -228,9 +255,11 @@ help:
 	@echo "GoLinks Makefile"
 	@echo ""
 	@echo "Build & Run:"
-	@echo "  make build          - Build the application binary"
+	@echo "  make build          - Build CSS and application binary"
 	@echo "  make run            - Run the application"
 	@echo "  make dev            - Start services and run app with OIDC"
+	@echo "  make css            - Build production Tailwind CSS"
+	@echo "  make css-watch      - Watch and rebuild CSS on changes"
 	@echo "  make clean          - Remove build artifacts"
 	@echo ""
 	@echo "Testing:"

@@ -99,6 +99,9 @@ The mock server provides interactive login — enter any username/password.
 | `SITE_FOOTER` | Footer text | `GoLinks - Fast URL shortcuts for your team` |
 | `SITE_LOGO_URL` | URL to logo image | (text only if empty) |
 | `ENABLE_ANIMATED_BACKGROUND` | Enable animated gradient and floating nodes | `false` (static background) |
+| `BANNER_TEXT` | Text displayed in a banner bar at the top of every page | (no banner if empty) |
+| `BANNER_TEXT_COLOR` | Banner text color (CSS color value) | `#ffffff` |
+| `BANNER_BG_COLOR` | Banner background color (CSS color value) | `#0891b2` |
 
 Example:
 ```bash
@@ -107,6 +110,9 @@ SITE_TAGLINE=Internal URL shortcuts for the team
 SITE_LOGO_URL=https://example.com/logo.png
 SITE_FOOTER=Powered by GoLinks
 ENABLE_ANIMATED_BACKGROUND=true  # Enable animations (higher CPU/GPU usage)
+BANNER_TEXT=Scheduled maintenance this Saturday 2am-4am UTC
+BANNER_TEXT_COLOR=#ffffff
+BANNER_BG_COLOR=#dc2626
 ```
 
 **Note on Animated Background**: The default static background provides the same visual theme without animations for better performance on low-end systems or older browsers. Enable animations for a more dynamic experience if system resources permit.

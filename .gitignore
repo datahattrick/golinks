@@ -18,6 +18,9 @@ go.work.sum
 # Dependency directories
 vendor/
 
+# Tailwind CLI binary (downloaded on demand)
+bin/
+
 # Environment files
 .env
 .env.local

@@ -90,15 +90,14 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
 
 	// Redirect API routes - auth depends on mode
-	// In simple mode (no personal/org links), redirect API doesn't require auth
+	// Only /go/:keyword is used; the old /:keyword catch-all was removed because
+	// it shadowed real endpoints (any route name became an unreachable keyword).
 	if s.Cfg.IsSimpleMode() {
 		slog.Info("running in simple mode, redirect API does not require authentication")
 		s.App.Get("/go/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
-		s.App.Get("/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
 	} else {
 		// Full mode - redirect routes require auth for personal/org resolution
 		s.App.Get("/go/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)
-		s.App.Get("/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)
 	}
 
 	// --- JSON API v1 routes ---

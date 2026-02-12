@@ -8,21 +8,27 @@ import (
 
 // BrandingData contains site branding information for templates.
 type BrandingData struct {
-	SiteTitle            string
-	SiteTagline          string
-	SiteFooter           string
-	SiteLogoURL          string
+	SiteTitle                string
+	SiteTagline              string
+	SiteFooter               string
+	SiteLogoURL              string
 	EnableAnimatedBackground bool
+	BannerText               string
+	BannerTextColor          string
+	BannerBGColor            string
 }
 
 // GetBrandingData returns branding data from config for template rendering.
 func GetBrandingData(cfg *config.Config) BrandingData {
 	return BrandingData{
-		SiteTitle:            cfg.SiteTitle,
-		SiteTagline:          cfg.SiteTagline,
-		SiteFooter:           cfg.SiteFooter,
-		SiteLogoURL:          cfg.SiteLogoURL,
+		SiteTitle:                cfg.SiteTitle,
+		SiteTagline:              cfg.SiteTagline,
+		SiteFooter:               cfg.SiteFooter,
+		SiteLogoURL:              cfg.SiteLogoURL,
 		EnableAnimatedBackground: cfg.EnableAnimatedBackground,
+		BannerText:               cfg.BannerText,
+		BannerTextColor:          cfg.BannerTextColor,
+		BannerBGColor:            cfg.BannerBGColor,
 	}
 }
 
@@ -34,5 +40,8 @@ func MergeBranding(data fiber.Map, cfg *config.Config) fiber.Map {
 	data["SiteFooter"] = branding.SiteFooter
 	data["SiteLogoURL"] = branding.SiteLogoURL
 	data["EnableAnimatedBackground"] = branding.EnableAnimatedBackground
+	data["BannerText"] = branding.BannerText
+	data["BannerTextColor"] = branding.BannerTextColor
+	data["BannerBGColor"] = branding.BannerBGColor
 	return data
 }
