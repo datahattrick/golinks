@@ -30,7 +30,7 @@ func NewRedirectHandler(database *db.DB, cfg *config.Config) *RedirectHandler {
 // At the same tier, user's primary group wins.
 // API clients (Accept: application/json) receive JSON instead of a redirect.
 func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
-	keyword := c.Params("keyword")
+	keyword := validation.NormalizeKeyword(c.Params("keyword"))
 	wantsJSON := strings.Contains(c.Get("Accept"), "application/json")
 
 	// Validate keyword format to prevent path traversal or injection attacks

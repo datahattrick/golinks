@@ -18,6 +18,11 @@ func ValidateKeyword(keyword string) bool {
 	return KeywordPattern.MatchString(keyword)
 }
 
+// NormalizeKeyword lowercases a keyword so lookups are case-insensitive.
+func NormalizeKeyword(keyword string) string {
+	return strings.ToLower(keyword)
+}
+
 // ValidateURL checks if a URL is valid and uses an allowed scheme (http/https only).
 // This prevents javascript:, data:, vbscript:, and other dangerous URL schemes.
 func ValidateURL(urlStr string) (bool, string) {

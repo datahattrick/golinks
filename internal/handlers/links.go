@@ -187,37 +187,53 @@ func (h *LinkHandler) New(c fiber.Ctx) error {
 		}
 	}
 
-	return c.Render("new", MergeBranding(fiber.Map{
-		"User":               user,
-		"OrgName":            orgName,
+	data := fiber.Map{
+		"User":                user,
+		"OrgName":             orgName,
 		"EnablePersonalLinks": h.cfg.EnablePersonalLinks,
-		"EnableOrgLinks":     h.cfg.EnableOrgLinks,
-	}, h.cfg))
+		"EnableOrgLinks":      h.cfg.EnableOrgLinks,
+	}
+
+	// Admins can create org links for any organization
+	if user != nil && user.IsAdmin() && h.cfg.EnableOrgLinks {
+		if allOrgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
+			data["AllOrgs"] = allOrgs
+		}
+	}
+
+	return c.Render("new", MergeBranding(data, h.cfg))
+}
+
+// splitKeywords splits a comma-separated keyword string into normalized, unique keywords.
+func splitKeywords(raw string) []string {
+	parts := strings.Split(raw, ",")
+	seen := make(map[string]bool, len(parts))
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		kw := validation.NormalizeKeyword(strings.TrimSpace(p))
+		if kw != "" && !seen[kw] {
+			seen[kw] = true
+			result = append(result, kw)
+		}
+	}
+	return result
 }
 
 // Create handles creating a new link based on scope.
+// Supports comma-separated keywords to create multiple links for the same URL.
 func (h *LinkHandler) Create(c fiber.Ctx) error {
 	user, ok := c.Locals("user").(*models.User)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
-	keyword := c.FormValue("keyword")
+	rawKeywords := c.FormValue("keyword")
 	url := c.FormValue("url")
 	description := c.FormValue("description")
 	scope := c.FormValue("scope")
 
-	if keyword == "" || url == "" {
+	if rawKeywords == "" || url == "" {
 		return htmxError(c, "Keyword and URL are required")
-	}
-
-	// Validate keyword format (alphanumeric, hyphens, underscores only)
-	if !validation.ValidateKeyword(keyword) {
-		return htmxError(c, "Keyword must contain only letters, numbers, hyphens, and underscores")
-	}
-
-	if keyword == "random" {
-		return htmxError(c, `The keyword "random" is reserved and cannot be used`)
 	}
 
 	// Validate URL scheme (http/https only, prevents javascript: XSS)
@@ -234,21 +250,179 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		}
 	}
 
+	// Split comma-separated keywords
+	keywords := splitKeywords(rawKeywords)
+	if len(keywords) == 0 {
+		return htmxError(c, "At least one keyword is required")
+	}
+
+	// Validate all keywords first
+	for _, kw := range keywords {
+		if !validation.ValidateKeyword(kw) {
+			return htmxError(c, "Invalid keyword: "+kw)
+		}
+		if kw == "random" {
+			return htmxError(c, `The keyword "random" is reserved and cannot be used`)
+		}
+	}
+
+	// Single keyword — use the original direct path (renders response directly)
+	if len(keywords) == 1 {
+		switch scope {
+		case "personal":
+			if !h.cfg.EnablePersonalLinks {
+				return htmxError(c, "Personal links are not enabled")
+			}
+			return h.createPersonalLink(c, user, keywords[0], url, description)
+		case "org":
+			if !h.cfg.EnableOrgLinks {
+				return htmxError(c, "Organization links are not enabled")
+			}
+			return h.createOrgLink(c, user, keywords[0], url, description)
+		case "global":
+			return h.createGlobalLink(c, user, keywords[0], url, description)
+		default:
+			return htmxError(c, "Invalid scope")
+		}
+	}
+
+	// Multiple keywords — create each using DB-only helpers, collect results
+	var created []string
+	var errMsgs []string
+	for _, kw := range keywords {
+		if errMsg := h.saveLinkForKeyword(c, user, kw, url, description, scope); errMsg != "" {
+			errMsgs = append(errMsgs, kw+": "+errMsg)
+		} else {
+			created = append(created, kw)
+		}
+	}
+
+	// Build combined result message
+	var msg string
+	if len(created) > 0 {
+		msg = "Created links: " + strings.Join(created, ", ")
+	}
+	if len(errMsgs) > 0 {
+		if msg != "" {
+			msg += ". "
+		}
+		msg += "Errors: " + strings.Join(errMsgs, "; ")
+	}
+
+	if len(created) > 0 {
+		return c.Render("partials/form_success", fiber.Map{
+			"Keyword": strings.Join(created, ", "),
+			"Message": msg,
+		}, "")
+	}
+	return htmxError(c, msg)
+}
+
+// saveLinkForKeyword performs the DB work for creating a link without rendering a response.
+// Returns an error message string (empty on success).
+func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword, url, description, scope string) string {
 	switch scope {
 	case "personal":
 		if !h.cfg.EnablePersonalLinks {
-			return htmxError(c, "Personal links are not enabled")
+			return "personal links are not enabled"
 		}
-		return h.createPersonalLink(c, user, keyword, url, description)
+		userLink := &models.UserLink{
+			UserID:      user.ID,
+			Keyword:     keyword,
+			URL:         url,
+			Description: description,
+		}
+		if err := h.db.CreateUserLink(c.Context(), userLink); err != nil {
+			if errors.Is(err, db.ErrDuplicateKeyword) {
+				return "duplicate keyword"
+			}
+			return err.Error()
+		}
+		return ""
 	case "org":
 		if !h.cfg.EnableOrgLinks {
-			return htmxError(c, "Organization links are not enabled")
+			return "organization links are not enabled"
 		}
-		return h.createOrgLink(c, user, keyword, url, description)
+		var orgID *uuid.UUID
+		if user.IsAdmin() {
+			orgIDStr := c.FormValue("organization_id")
+			if orgIDStr != "" {
+				parsed, err := uuid.Parse(orgIDStr)
+				if err != nil {
+					return "invalid organization ID"
+				}
+				orgID = &parsed
+			} else if user.OrganizationID != nil {
+				orgID = user.OrganizationID
+			} else {
+				return "organization required"
+			}
+		} else {
+			if user.OrganizationID == nil {
+				return "you must be a member of an organization"
+			}
+			orgID = user.OrganizationID
+		}
+		link := &models.Link{
+			Keyword:        keyword,
+			URL:            url,
+			Description:    description,
+			Scope:          models.ScopeOrg,
+			OrganizationID: orgID,
+		}
+		if user.IsAdmin() || user.CanModerateOrg(*orgID) {
+			link.CreatedBy = &user.ID
+			link.Status = models.StatusApproved
+			if err := h.db.CreateLink(c.Context(), link); err != nil {
+				if errors.Is(err, db.ErrDuplicateKeyword) {
+					return "duplicate keyword"
+				}
+				return err.Error()
+			}
+		} else {
+			link.SubmittedBy = &user.ID
+			if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
+				if errors.Is(err, db.ErrDuplicateKeyword) {
+					return "duplicate keyword"
+				}
+				return err.Error()
+			}
+			if Notifier != nil {
+				go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
+			}
+		}
+		return ""
 	case "global":
-		return h.createGlobalLink(c, user, keyword, url, description)
+		link := &models.Link{
+			Keyword:     keyword,
+			URL:         url,
+			Description: description,
+			Scope:       models.ScopeGlobal,
+		}
+		if user.IsGlobalMod() {
+			link.CreatedBy = &user.ID
+			link.Status = models.StatusApproved
+			if err := h.db.CreateLink(c.Context(), link); err != nil {
+				if errors.Is(err, db.ErrDuplicateKeyword) {
+					return "duplicate keyword"
+				}
+				return err.Error()
+			}
+		} else {
+			link.SubmittedBy = &user.ID
+			if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
+				if errors.Is(err, db.ErrDuplicateKeyword) {
+					return "duplicate keyword"
+				}
+				return err.Error()
+			}
+			if Notifier != nil {
+				go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
+			}
+		}
+		return ""
 	default:
-		return htmxError(c, "Invalid scope")
+		return "invalid scope"
 	}
 }
 
@@ -276,8 +450,27 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 
 // createOrgLink creates an org-scoped link.
 func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
-	if user.OrganizationID == nil {
-		return htmxError(c, "You must be a member of an organization to create org links")
+	var orgID *uuid.UUID
+
+	// Admins can create org links for any organization
+	if user.IsAdmin() {
+		orgIDStr := c.FormValue("organization_id")
+		if orgIDStr != "" {
+			parsed, err := uuid.Parse(orgIDStr)
+			if err != nil {
+				return htmxError(c, "Invalid organization ID")
+			}
+			orgID = &parsed
+		} else if user.OrganizationID != nil {
+			orgID = user.OrganizationID
+		} else {
+			return htmxError(c, "Please select an organization")
+		}
+	} else {
+		if user.OrganizationID == nil {
+			return htmxError(c, "You must be a member of an organization to create org links")
+		}
+		orgID = user.OrganizationID
 	}
 
 	link := &models.Link{
@@ -285,11 +478,11 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		URL:            url,
 		Description:    description,
 		Scope:          models.ScopeOrg,
-		OrganizationID: user.OrganizationID,
+		OrganizationID: orgID,
 	}
 
-	// Org mods can create links directly, others need approval
-	if user.CanModerateOrg(*user.OrganizationID) {
+	// Admins and org mods can create links directly, others need approval
+	if user.IsAdmin() || user.CanModerateOrg(*orgID) {
 		link.CreatedBy = &user.ID
 		link.Status = models.StatusApproved
 		if err := h.db.CreateLink(c.Context(), link); err != nil {
@@ -424,7 +617,7 @@ func (h *LinkHandler) Delete(c fiber.Ctx) error {
 // CheckKeyword checks if a keyword already exists for the given scope.
 // Returns HTML for HTMX to display conflict warnings.
 func (h *LinkHandler) CheckKeyword(c fiber.Ctx) error {
-	keyword := c.Query("keyword")
+	keyword := validation.NormalizeKeyword(c.Query("keyword"))
 	scope := c.Query("scope", "personal")
 
 	if keyword == "" {

@@ -30,7 +30,7 @@
                 class="text-xs px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all font-medium"
                 hx-delete="/my-links/{{.ID}}"
                 hx-target="#user-link-{{.ID}}"
-                hx-swap="outerHTML swap:300ms"
+                hx-swap="outerHTML"
                 hx-confirm="Remove this personal link?">
                 Remove
             </button>

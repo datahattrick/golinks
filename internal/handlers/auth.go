@@ -32,12 +32,17 @@ func NewAuthHandler(ctx context.Context, cfg *config.Config, database *db.DB) (*
 		return nil, err
 	}
 
+	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
+	if cfg.HasGroupRoleMapping() {
+		scopes = append(scopes, "groups")
+	}
+
 	oauth2Config := oauth2.Config{
 		ClientID:     cfg.OIDCClientID,
 		ClientSecret: cfg.OIDCClientSecret,
 		RedirectURL:  cfg.OIDCRedirectURL,
 		Endpoint:     provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       scopes,
 	}
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OIDCClientID})

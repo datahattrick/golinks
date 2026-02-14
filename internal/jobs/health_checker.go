@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"log"
 	"net/http"
@@ -28,6 +29,9 @@ func NewHealthChecker(database *db.DB, interval, maxAge time.Duration) *HealthCh
 		maxAge:   maxAge,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 10 {
 					return errors.New("too many redirects")
@@ -111,14 +115,10 @@ func (h *HealthChecker) checkURL(ctx context.Context, url string) (string, *stri
 	resp, err := h.client.Do(req)
 	if err != nil {
 		errMsg := "connection failed: " + err.Error()
-		return models.HealthUnhealthy, &errMsg
+		return models.HealthUnknown, &errMsg
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		return models.HealthHealthy, nil
-	}
-
-	errMsg := "HTTP " + resp.Status
-	return models.HealthUnhealthy, &errMsg
+	// Any HTTP response means the site is reachable
+	return models.HealthHealthy, nil
 }

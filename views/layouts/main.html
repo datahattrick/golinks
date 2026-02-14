@@ -19,40 +19,27 @@
     </script>
     <style>
         {{if .EnableAnimatedBackground}}
-        /* Animated gradient background */
-        .bg-animated {
-            background: linear-gradient(-45deg, #f0fdfa, #ecfeff, #f0f9ff, #eff6ff, #f5f3ff);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
-        }
-        .dark .bg-animated {
-            background: linear-gradient(-45deg, #022c22, #042f2e, #0c1929, #0f172a, #1e1b4b);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
-        }
         @keyframes gradientShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        {{else}}
-        /* Static gradient background (performance-friendly) */
-        .bg-static {
-            background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 25%, #f0f9ff 50%, #eff6ff 75%, #f5f3ff 100%);
-        }
-        .dark .bg-static {
-            background: linear-gradient(135deg, #022c22 0%, #042f2e 25%, #0c1929 50%, #0f172a 75%, #1e1b4b 100%);
-        }
-        {{end}}
 
-        {{if .EnableAnimatedBackground}}
-        /* Network nodes animation */
+        /* Network background with merged gradient */
         .network-bg {
             position: fixed;
             inset: 0;
             overflow: hidden;
             pointer-events: none;
             z-index: 0;
+            background: linear-gradient(-45deg, #f0fdfa, #ecfeff, #f0f9ff, #eff6ff, #f5f3ff);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        .dark .network-bg {
+            background: linear-gradient(-45deg, #022c22, #042f2e, #0c1929, #0f172a, #1e1b4b);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
         }
         .network-node {
             position: absolute;
@@ -127,13 +114,17 @@
             to { stroke-dashoffset: -1000; }
         }
         {{else}}
-        /* Static decorative elements (no animation) */
+        /* Static background with merged gradient */
         .static-bg {
             position: fixed;
             inset: 0;
             overflow: hidden;
             pointer-events: none;
             z-index: 0;
+            background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 25%, #f0f9ff 50%, #eff6ff 75%, #f5f3ff 100%);
+        }
+        .dark .static-bg {
+            background: linear-gradient(135deg, #022c22 0%, #042f2e 25%, #0c1929 50%, #0f172a 75%, #1e1b4b 100%);
         }
         .static-node {
             position: absolute;
@@ -169,8 +160,6 @@
         /* Glass morphism cards */
         .glass-card {
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(0, 0, 0, 0.12);
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
         }
@@ -219,7 +208,7 @@
         }
     </style>
 </head>
-<body class="h-full {{if .EnableAnimatedBackground}}bg-animated{{else}}bg-static{{end}} text-gray-900 dark:text-gray-100 transition-colors font-sans">
+<body class="h-full text-gray-900 dark:text-gray-100 transition-colors font-sans">
     {{if .EnableAnimatedBackground}}
     <!-- Animated background elements -->
     <div class="network-bg">
@@ -271,7 +260,7 @@
 
     <!-- Confirm dialog -->
     <div id="confirm-modal" class="fixed inset-0 z-50 hidden">
-        <div class="fixed inset-0 bg-gray-900/50 dark:bg-black/60 backdrop-blur-sm" id="confirm-backdrop"></div>
+        <div class="fixed inset-0 bg-gray-900/50 dark:bg-black/60" id="confirm-backdrop"></div>
         <div class="fixed inset-0 flex items-center justify-center p-4">
             <div class="glass-card rounded-2xl shadow-xl max-w-sm w-full p-6 relative">
                 <div class="flex items-center gap-3 mb-4">

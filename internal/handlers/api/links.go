@@ -80,6 +80,8 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		return jsonError(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
+	body.Keyword = validation.NormalizeKeyword(body.Keyword)
+
 	if body.Keyword == "" || body.URL == "" {
 		return jsonError(c, fiber.StatusBadRequest, "keyword and url are required")
 	}
@@ -145,8 +147,32 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 }
 
 func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
-	if user.OrganizationID == nil {
-		return jsonError(c, fiber.StatusBadRequest, "you must be a member of an organization to create org links")
+	var orgID *uuid.UUID
+
+	// Admins can create org links for any organization via organization_id in body
+	if user.IsAdmin() {
+		var bodyMap map[string]any
+		if err := json.Unmarshal(c.Body(), &bodyMap); err == nil {
+			if oidStr, ok := bodyMap["organization_id"].(string); ok && oidStr != "" {
+				parsed, err := uuid.Parse(oidStr)
+				if err != nil {
+					return jsonError(c, fiber.StatusBadRequest, "invalid organization_id")
+				}
+				orgID = &parsed
+			}
+		}
+		if orgID == nil {
+			if user.OrganizationID != nil {
+				orgID = user.OrganizationID
+			} else {
+				return jsonError(c, fiber.StatusBadRequest, "organization_id is required for admins without an org")
+			}
+		}
+	} else {
+		if user.OrganizationID == nil {
+			return jsonError(c, fiber.StatusBadRequest, "you must be a member of an organization to create org links")
+		}
+		orgID = user.OrganizationID
 	}
 
 	link := &models.Link{
@@ -154,10 +180,10 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		URL:            url,
 		Description:    description,
 		Scope:          models.ScopeOrg,
-		OrganizationID: user.OrganizationID,
+		OrganizationID: orgID,
 	}
 
-	if user.CanModerateOrg(*user.OrganizationID) {
+	if user.IsAdmin() || user.CanModerateOrg(*orgID) {
 		link.CreatedBy = &user.ID
 		link.Status = models.StatusApproved
 		if err := h.db.CreateLink(c.Context(), link); err != nil {
@@ -331,7 +357,7 @@ func (h *LinkHandler) Delete(c fiber.Ctx) error {
 
 // CheckKeyword checks if a keyword is available for the given scope.
 func (h *LinkHandler) CheckKeyword(c fiber.Ctx) error {
-	keyword := c.Params("keyword")
+	keyword := validation.NormalizeKeyword(c.Params("keyword"))
 	scope := c.Query("scope", "personal")
 
 	if keyword == "" {

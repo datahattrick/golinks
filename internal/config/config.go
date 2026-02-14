@@ -87,7 +87,7 @@ type Config struct {
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
-		Env:              getEnv("ENV", "development"),
+		Env:              getEnv("ENV", "production"),
 		ServerAddr:       getEnv("SERVER_ADDR", ":3000"),
 		BaseURL:          getEnv("BASE_URL", "http://localhost:3000"),
 		DatabaseURL:      getEnv("DATABASE_URL", "postgres://localhost:5432/golinks?sslmode=disable"),

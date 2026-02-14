@@ -25,7 +25,7 @@ func NewResolveHandler(database *db.DB, cfg *config.Config) *ResolveHandler {
 
 // Resolve resolves a keyword to its URL without performing a redirect.
 func (h *ResolveHandler) Resolve(c fiber.Ctx) error {
-	keyword := c.Params("keyword")
+	keyword := validation.NormalizeKeyword(c.Params("keyword"))
 
 	if !validation.ValidateKeyword(keyword) {
 		return jsonError(c, fiber.StatusBadRequest, "invalid keyword")

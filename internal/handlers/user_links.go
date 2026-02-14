@@ -52,7 +52,7 @@ func (h *UserLinkHandler) Create(c fiber.Ctx) error {
 
 	link := &models.UserLink{
 		UserID:      user.ID,
-		Keyword:     c.FormValue("keyword"),
+		Keyword:     validation.NormalizeKeyword(c.FormValue("keyword")),
 		URL:         c.FormValue("url"),
 		Description: c.FormValue("description"),
 	}
