@@ -66,6 +66,15 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	if s.Cfg.EnablePersonalLinks {
 		s.App.Get("/my-links", authMiddleware.RequireAuth, userLinkHandler.List)
 		s.App.Post("/my-links", authMiddleware.RequireAuth, userLinkHandler.Create)
+
+		// Shared link routes (must be before /my-links/:id to avoid parameter capture)
+		sharedLinkHandler := handlers.NewSharedLinkHandler(database, s.Cfg)
+		s.App.Get("/my-links/users/search", authMiddleware.RequireAuth, sharedLinkHandler.SearchUsers)
+		s.App.Post("/my-links/share", authMiddleware.RequireAuth, sharedLinkHandler.Create)
+		s.App.Post("/my-links/share/:id/accept", authMiddleware.RequireAuth, sharedLinkHandler.Accept)
+		s.App.Delete("/my-links/share/:id", authMiddleware.RequireAuth, sharedLinkHandler.Decline)
+		s.App.Delete("/my-links/share/:id/withdraw", authMiddleware.RequireAuth, sharedLinkHandler.Withdraw)
+
 		s.App.Delete("/my-links/:id", authMiddleware.RequireAuth, userLinkHandler.Delete)
 	}
 

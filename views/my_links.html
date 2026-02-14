@@ -5,7 +5,7 @@
 
 <!-- Pending Submissions Section -->
 {{if .PendingLinks}}
-<div class="mb-6">
+<div class="mb-8">
     <h2 class="text-sm font-semibold mb-3 flex items-center gap-2 text-amber-600 dark:text-amber-400">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -51,44 +51,200 @@
 </div>
 {{end}}
 
-<!-- Personal Links Section -->
-<div class="glass-card rounded-2xl p-5 mb-6">
-    <h2 class="text-sm font-semibold mb-4 flex items-center gap-2">
-        <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+<!-- Incoming Shares Section (OOB-swappable so it disappears when empty) -->
+<div id="incoming-shares-section">
+{{if .IncomingShares}}
+<div class="mb-8 p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30">
+    <h2 class="text-sm font-semibold mb-3 flex items-center gap-2 text-blue-600 dark:text-blue-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
         </svg>
-        Add Personal Link
+        Shared With You
+        <span class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">{{len .IncomingShares}}</span>
     </h2>
-    <form hx-post="/my-links" hx-target="#user-links-list" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="flex gap-3 flex-wrap">
-        <input
-            type="text"
-            name="keyword"
-            required
-            placeholder="keyword"
-            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-32 font-mono transition-all">
-        <input
-            type="url"
-            name="url"
-            required
-            placeholder="https://..."
-            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none flex-1 min-w-[200px] transition-all">
-        <input
-            type="text"
-            name="description"
-            placeholder="description"
-            class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-40 transition-all">
-        <button type="submit" class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all shadow-md shadow-brand-500/25">
-            Add Link
-        </button>
-    </form>
+    <div class="space-y-2" id="incoming-shares-list">
+        {{template "partials/incoming_shares_list" .}}
+    </div>
+</div>
+{{end}}
 </div>
 
-<h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
-    <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-    </svg>
-    Personal Links
-</h2>
-<div id="user-links-list" class="space-y-3">
-    {{template "partials/user_links_list" .}}
+<!-- Divider -->
+<div class="border-t border-gray-200 dark:border-gray-700/50 my-8"></div>
+
+<!-- Personal Links Section -->
+<div class="mb-8">
+    <div class="glass-card rounded-2xl p-5 mb-4">
+        <h2 class="text-sm font-semibold mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Personal Link
+        </h2>
+        <form hx-post="/my-links" hx-target="#user-links-list" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="flex gap-3 flex-wrap">
+            <input
+                type="text"
+                name="keyword"
+                required
+                placeholder="keyword or a,b,c"
+                class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-32 font-mono transition-all">
+            <input
+                type="url"
+                name="url"
+                required
+                placeholder="https://..."
+                class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none flex-1 min-w-[200px] transition-all">
+            <input
+                type="text"
+                name="description"
+                placeholder="description"
+                class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-40 transition-all">
+            <button type="submit" class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all shadow-md shadow-brand-500/25">
+                Add Link
+            </button>
+        </form>
+    </div>
+
+    <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        Personal Links
+    </h2>
+    <div id="user-links-list" class="space-y-3">
+        {{template "partials/user_links_list" .}}
+    </div>
 </div>
+
+<!-- Divider -->
+<div class="border-t border-gray-200 dark:border-gray-700/50 my-8"></div>
+
+<!-- Share a Link Form -->
+<div class="mb-8">
+    <div id="share-form-section" class="glass-card rounded-2xl p-5 mb-4">
+        <h2 class="text-sm font-semibold mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+            </svg>
+            Share a Link
+        </h2>
+        <form id="share-form" hx-post="/my-links/share" hx-target="#outgoing-shares-list" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful && event.detail.elt === this) { this.reset(); clearRecipients(); }"
+              class="space-y-3">
+            <!-- User search with autocomplete -->
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Recipients</label>
+                <!-- Selected recipients chips -->
+                <div id="selected-recipients" class="flex flex-wrap gap-1.5 mb-2 empty:mb-0"></div>
+                <!-- Hidden inputs container for form submission -->
+                <div id="recipient-inputs"></div>
+                <div class="relative">
+                    <input
+                        type="text"
+                        id="share-user-search"
+                        placeholder="Search by name or email..."
+                        autocomplete="off"
+                        hx-get="/my-links/users/search"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#user-suggestions"
+                        hx-swap="innerHTML"
+                        name="q"
+                        class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-full transition-all">
+                    <div id="user-suggestions" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden empty:hidden max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+            <!-- Link fields -->
+            <div class="flex gap-3 flex-wrap">
+                <input
+                    type="text"
+                    name="keyword"
+                    required
+                    placeholder="keyword"
+                    class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-32 font-mono transition-all">
+                <input
+                    type="url"
+                    name="url"
+                    required
+                    placeholder="https://..."
+                    class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none flex-1 min-w-[200px] transition-all">
+                <input
+                    type="text"
+                    name="description"
+                    placeholder="description"
+                    class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-40 transition-all">
+                <button type="submit" class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md shadow-blue-500/25">
+                    Share
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <h2 class="text-sm font-semibold mb-3 flex items-center gap-2 text-gray-600 dark:text-gray-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        </svg>
+        Outgoing Shares
+        {{if .OutgoingShares}}
+        <span class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{{len .OutgoingShares}}</span>
+        {{end}}
+    </h2>
+    <div id="outgoing-shares-list" class="space-y-2">
+        {{template "partials/outgoing_shares_list" .}}
+    </div>
+</div>
+
+<script>
+var selectedRecipients = {};
+
+function selectUser(id, name, email) {
+    if (selectedRecipients[id]) return;
+    selectedRecipients[id] = { name: name, email: email };
+    renderRecipients();
+    document.getElementById('share-user-search').value = '';
+    document.getElementById('user-suggestions').innerHTML = '';
+    document.getElementById('share-user-search').focus();
+}
+
+function removeRecipient(id) {
+    delete selectedRecipients[id];
+    renderRecipients();
+}
+
+function clearRecipients() {
+    selectedRecipients = {};
+    renderRecipients();
+}
+
+function renderRecipients() {
+    var chips = document.getElementById('selected-recipients');
+    var inputs = document.getElementById('recipient-inputs');
+    chips.innerHTML = '';
+    inputs.innerHTML = '';
+    for (var id in selectedRecipients) {
+        var r = selectedRecipients[id];
+        var chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium';
+        var label = r.name;
+        if (r.email && r.email !== r.name) label += ' (' + r.email + ')';
+        chip.innerHTML =
+            '<span class="truncate max-w-[200px]">' + label + '</span>' +
+            '<button type="button" onclick="removeRecipient(\'' + id + '\')" class="ml-1 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0">&times;</button>';
+        chips.appendChild(chip);
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'recipient_id';
+        input.value = id;
+        inputs.appendChild(input);
+    }
+}
+
+function prefillShare(keyword, url, description) {
+    var section = document.getElementById('share-form-section');
+    var form = document.getElementById('share-form');
+    form.querySelector('[name="keyword"]').value = keyword;
+    form.querySelector('[name="url"]').value = url;
+    form.querySelector('[name="description"]').value = description;
+    section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function() { document.getElementById('share-user-search').focus(); }, 400);
+}
+</script>

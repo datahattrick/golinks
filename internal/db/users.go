@@ -220,6 +220,40 @@ func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 	return users, rows.Err()
 }
 
+// SearchUsers searches users by name or email, excluding the requesting user.
+func (d *DB) SearchUsers(ctx context.Context, query string, excludeID uuid.UUID, limit int) ([]models.User, error) {
+	q := `
+		SELECT id, COALESCE(username, ''), email, name, sub
+		FROM users
+		WHERE id != $1
+		  AND (
+		    name ILIKE '%' || $2 || '%'
+		    OR email ILIKE '%' || $2 || '%'
+		    OR username ILIKE '%' || $2 || '%'
+		    OR sub ILIKE '%' || $2 || '%'
+		  )
+		ORDER BY name ASC
+		LIMIT $3
+	`
+
+	rows, err := d.Pool.Query(ctx, q, excludeID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Name, &u.Sub); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	return users, rows.Err()
+}
+
 // GetUserCount returns the total number of users.
 func (d *DB) GetUserCount(ctx context.Context) (int, error) {
 	var count int

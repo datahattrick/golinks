@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func NewUserLinkHandler(database *db.DB, cfg *config.Config) *UserLinkHandler {
 	return &UserLinkHandler{db: database, cfg: cfg}
 }
 
-// List renders the my links page with all user link overrides and pending submissions.
+// List renders the my links page with all user link overrides, pending submissions, and shares.
 func (h *UserLinkHandler) List(c fiber.Ctx) error {
 	user := c.Locals("user").(*models.User)
 
@@ -39,43 +40,70 @@ func (h *UserLinkHandler) List(c fiber.Ctx) error {
 		return err
 	}
 
+	// Get incoming and outgoing shared links
+	incomingShares, err := h.db.GetIncomingShares(c.Context(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	outgoingShares, err := h.db.GetOutgoingShares(c.Context(), user.ID)
+	if err != nil {
+		return err
+	}
+
 	return c.Render("my_links", MergeBranding(fiber.Map{
-		"UserLinks":    personalLinks,
-		"PendingLinks": pendingLinks,
-		"User":         user,
+		"UserLinks":      personalLinks,
+		"PendingLinks":   pendingLinks,
+		"IncomingShares": incomingShares,
+		"OutgoingShares": outgoingShares,
+		"User":           user,
 	}, h.cfg))
 }
 
-// Create creates a new user link override.
+// Create creates new user link overrides. Supports comma-separated keywords.
 func (h *UserLinkHandler) Create(c fiber.Ctx) error {
 	user := c.Locals("user").(*models.User)
 
-	link := &models.UserLink{
-		UserID:      user.ID,
-		Keyword:     validation.NormalizeKeyword(c.FormValue("keyword")),
-		URL:         c.FormValue("url"),
-		Description: c.FormValue("description"),
-	}
+	url := c.FormValue("url")
+	description := c.FormValue("description")
 
-	if link.Keyword == "" || link.URL == "" {
+	keywords := splitKeywords(c.FormValue("keyword"))
+	if len(keywords) == 0 || url == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "Keyword and URL are required")
 	}
 
-	// Validate keyword format
-	if !validation.ValidateKeyword(link.Keyword) {
-		return fiber.NewError(fiber.StatusBadRequest, "Keyword must contain only letters, numbers, hyphens, and underscores")
-	}
-
 	// Validate URL scheme
-	if valid, msg := validation.ValidateURL(link.URL); !valid {
+	if valid, msg := validation.ValidateURL(url); !valid {
 		return fiber.NewError(fiber.StatusBadRequest, msg)
 	}
 
-	if err := h.db.CreateUserLink(c.Context(), link); err != nil {
-		if errors.Is(err, db.ErrDuplicateKeyword) {
-			return fiber.NewError(fiber.StatusConflict, "You already have a link with this keyword")
+	// Validate all keywords first
+	for _, kw := range keywords {
+		if !validation.ValidateKeyword(kw) {
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid keyword: "+kw)
 		}
-		return err
+	}
+
+	// Create each keyword
+	var errMsgs []string
+	for _, kw := range keywords {
+		link := &models.UserLink{
+			UserID:      user.ID,
+			Keyword:     kw,
+			URL:         url,
+			Description: description,
+		}
+		if err := h.db.CreateUserLink(c.Context(), link); err != nil {
+			if errors.Is(err, db.ErrDuplicateKeyword) {
+				errMsgs = append(errMsgs, kw+": duplicate")
+			} else {
+				errMsgs = append(errMsgs, kw+": "+err.Error())
+			}
+		}
+	}
+
+	if len(errMsgs) == len(keywords) {
+		return fiber.NewError(fiber.StatusConflict, "Failed: "+strings.Join(errMsgs, "; "))
 	}
 
 	// Return the updated list for HTMX

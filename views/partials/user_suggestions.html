@@ -1,0 +1,10 @@
+{{range .Users}}
+<button type="button"
+    class="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm cursor-pointer"
+    onclick="selectUser('{{.ID}}', '{{or .Name .Username .Sub}}', '{{or .Email .Sub}}')">
+    <span class="font-medium text-gray-900 dark:text-white">{{or .Name .Username .Sub}}</span>
+    {{if .Email}}<span class="text-gray-500 dark:text-gray-400 text-xs ml-1">{{.Email}}</span>{{end}}
+</button>
+{{else}}
+<div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No users found</div>
+{{end}}
