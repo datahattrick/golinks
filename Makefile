@@ -22,8 +22,8 @@ TAILWIND_OS := $(shell uname -s | tr A-Z a-z)
 TAILWIND_ARCH := $(shell uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')
 TAILWIND_BIN := bin/tailwindcss
 
-# OIDC (matches docker-compose Keycloak)
-OIDC_ISSUER ?= http://localhost:8080/realms/golinks
+# OIDC (matches docker-compose mock server)
+OIDC_ISSUER ?= http://localhost:8080/golinks
 OIDC_CLIENT_ID ?= golinks-app
 OIDC_CLIENT_SECRET ?= secret
 OIDC_REDIRECT_URL ?= http://localhost:3000/auth/callback

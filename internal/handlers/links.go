@@ -311,8 +311,8 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 
 	if len(created) > 0 {
 		return c.Render("partials/form_success", fiber.Map{
-			"Keyword": strings.Join(created, ", "),
-			"Message": msg,
+			"Keywords": created,
+			"Message":  msg,
 		}, "")
 	}
 	return htmxError(c, msg)

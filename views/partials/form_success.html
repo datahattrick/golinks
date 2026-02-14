@@ -4,6 +4,11 @@
 </div>
 {{else}}
 <div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm">
-    {{if .Message}}{{.Message}}{{else}}Link created successfully!{{end}} <a href="/{{.Keyword}}" class="underline font-medium">{{.Keyword}}</a>
+    {{if .Message}}{{.Message}}{{end}}
+    {{if .Keywords}}
+        {{range $i, $kw := .Keywords}}{{if $i}}, {{end}}<a href="/go/{{$kw}}" class="underline font-medium">{{$kw}}</a>{{end}}
+    {{else if .Keyword}}
+        <a href="/go/{{.Keyword}}" class="underline font-medium">{{.Keyword}}</a>
+    {{end}}
 </div>
 {{end}}

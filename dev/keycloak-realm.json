@@ -22,7 +22,8 @@
     {
       "clientId": "golinks-app",
       "enabled": true,
-      "publicClient": true,
+      "publicClient": false,
+      "secret": "secret",
       "directAccessGrantsEnabled": true,
       "redirectUris": ["http://localhost:3000/*"],
       "webOrigins": ["http://localhost:3000"],
