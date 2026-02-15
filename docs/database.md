@@ -62,6 +62,20 @@ GoLinks uses PostgreSQL with the `pg_trgm` extension for fuzzy search. Migration
 
 Unique constraint on `(link_id, hour_bucket)`. Powers the 24-hour sparkline graphs on the home page.
 
+### `shared_links`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `sender_id` | UUID | FK → users (CASCADE) |
+| `recipient_id` | UUID | FK → users (CASCADE) |
+| `keyword` | VARCHAR(255) | Link keyword being shared |
+| `url` | TEXT | Destination URL |
+| `description` | TEXT | Optional description |
+| `created_at` | TIMESTAMPTZ | Creation timestamp |
+
+Constraints: `no_self_share` CHECK prevents sender = recipient. `unique_pending_share` UNIQUE on (sender_id, recipient_id, keyword) prevents duplicate offers. Indexes on `sender_id` and `recipient_id`.
+
 ### `groups`
 
 | Column | Type | Description |
@@ -99,3 +113,4 @@ Unique constraint on `(link_id, hour_bucket)`. Powers the 24-hour sparkline grap
 | 007 | `add_org_fallback_url` | Per-org fallback redirects |
 | 008 | `fix_keyword_unique_constraint` | Allow org keywords to shadow global |
 | 009 | `add_click_history` | Hourly click buckets for sparklines |
+| 011 | `add_shared_links` | Personal link sharing between users |

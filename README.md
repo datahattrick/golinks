@@ -11,6 +11,7 @@ A self-hosted URL shortener for teams. Create memorable short links like `docs` 
 - Trigram-based fuzzy search
 - URL health monitoring with email alerts
 - Click tracking with 24-hour sparkline graphs
+- Personal link sharing with accept/decline workflow and anti-spam limits
 - Per-org fallback redirects and tier-based group resolution
 - Configurable site banner with custom text and colors
 - Structured logging with configurable log levels

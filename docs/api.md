@@ -27,6 +27,11 @@ These routes serve the web UI. Partial responses are returned for HTMX requests 
 | `GET` | `/my-links` | Required | Personal links list |
 | `POST` | `/my-links` | Required | Create personal link |
 | `DELETE` | `/my-links/:id` | Required | Delete personal link |
+| `GET` | `/my-links/users/search` | Required | Search users for share autocomplete |
+| `POST` | `/my-links/share` | Required | Share a link with other users |
+| `POST` | `/my-links/share/:id/accept` | Required | Accept a shared link |
+| `DELETE` | `/my-links/share/:id` | Required | Decline a shared link |
+| `DELETE` | `/my-links/share/:id/withdraw` | Required | Withdraw an outgoing share |
 | `GET` | `/profile` | Required | User profile page |
 | `GET` | `/moderation` | Mod+ | Moderation queue |
 | `POST` | `/moderation/:id/approve` | Mod+ | Approve pending link |

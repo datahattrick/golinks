@@ -44,6 +44,31 @@ Links are accessed via the `/go/:keyword` URL pattern:
 
 This redirects (HTTP 302) to the destination URL. The JSON API endpoint `/api/v1/resolve/:keyword` returns the URL without redirecting.
 
+## Sharing Links
+
+You can share personal links with other users from the **My Links** page:
+
+1. Scroll to the **Share a Link** section (or click the **Share** button on any existing personal link to pre-fill the form)
+2. Search for recipients by name or email — select one or more users
+3. Fill in the keyword, URL, and optional description
+4. Click **Share**
+
+The recipient sees the shared link under **Shared With You** on their My Links page. They can:
+
+- **Accept** — copies the link into their personal links
+- **Decline** — removes the offer
+
+As the sender, you can **Withdraw** any pending outgoing share.
+
+### Anti-Spam Limits
+
+| Constraint | Limit |
+|------------|-------|
+| Pending outgoing shares per user | 5 |
+| Pending incoming shares per user | 5 |
+| Self-sharing | Blocked |
+| Duplicate (same sender + recipient + keyword) | Blocked |
+
 ## Click Tracking
 
 Every redirect increments the link's click count. The home page displays the top-used links with 24-hour sparkline graphs showing hourly click activity.
