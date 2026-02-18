@@ -90,8 +90,21 @@ func New(cfg *config.Config) *Server {
 
 	// --- Middleware applied to ALL routes (including static) ---
 	app.Use(recover.New(recover.Config{
-		EnableStackTrace: true,
+		EnableStackTrace: cfg.IsDev(),
 	}))
+
+	// Security headers
+	app.Use(func(c fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "DENY")
+		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		c.Set("X-XSS-Protection", "0")
+		if cfg.TLSEnabled {
+			c.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
+		return c.Next()
+	})
 	app.Use(logger.New(logger.Config{
 		// Write to stderr so container log collectors capture Fiber request logs
 		// alongside slog output (which also writes to stderr).
@@ -132,9 +145,10 @@ func New(cfg *config.Config) *Server {
 
 	// Session middleware
 	sessionCfg := session.Config{
-		CookieSecure:   cfg.TLSEnabled || !cfg.IsDev(),
-		CookieHTTPOnly: true,
-		CookieSameSite: "Lax",
+		CookieSecure:    cfg.TLSEnabled || !cfg.IsDev(),
+		CookieHTTPOnly:  true,
+		CookieSameSite:  "Lax",
+		AbsoluteTimeout: 24 * time.Hour,
 	}
 	if cfg.SessionStore == "postgres" {
 		sessionCfg.Storage = pgstore.New(pgstore.Config{

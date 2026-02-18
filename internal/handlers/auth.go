@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -67,7 +68,10 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	}
 	sess.Set("oauth_state", state)
 
-	url := h.oauth2Config.AuthCodeURL(state)
+	verifier := oauth2.GenerateVerifier()
+	sess.Set("pkce_verifier", verifier)
+
+	url := h.oauth2Config.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	return c.Redirect().To(url)
 }
 
@@ -79,14 +83,22 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	}
 
 	// Verify state
-	savedState := sess.Get("oauth_state")
-	if savedState == nil || savedState.(string) != c.Query("state") {
+	savedState, ok := sess.Get("oauth_state").(string)
+	if !ok || savedState == "" || savedState != c.Query("state") {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid state")
 	}
 	sess.Delete("oauth_state")
 
-	// Exchange code for token
-	oauth2Token, err := h.oauth2Config.Exchange(c.Context(), c.Query("code"))
+	// Retrieve PKCE verifier
+	verifier, _ := sess.Get("pkce_verifier").(string)
+	sess.Delete("pkce_verifier")
+
+	// Exchange code for token (with PKCE verifier)
+	var exchangeOpts []oauth2.AuthCodeOption
+	if verifier != "" {
+		exchangeOpts = append(exchangeOpts, oauth2.VerifierOption(verifier))
+	}
+	oauth2Token, err := h.oauth2Config.Exchange(c.Context(), c.Query("code"), exchangeOpts...)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "failed to exchange code")
 	}
@@ -201,8 +213,11 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 		}
 	}
 
-	// Store session
+	// Store session and regenerate ID to prevent session fixation
 	sess.Set("user_sub", sub)
+	if err := sess.Regenerate(); err != nil {
+		slog.Error("failed to regenerate session", "error", err)
+	}
 
 	// Redirect to original URL if stored, otherwise home.
 	// Validate that the redirect is a safe relative path to prevent open redirects.
@@ -227,7 +242,7 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 }
 
 func generateState() string {
-	b := make([]byte, 16)
+	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }

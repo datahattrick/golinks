@@ -1,10 +1,14 @@
 package validation
 
 import (
+	"context"
+	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // KeywordPattern defines the valid keyword format: alphanumeric, hyphens, underscores.
@@ -118,6 +122,34 @@ func IsPrivateHost(host string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// NewSafeTransport returns an http.Transport that validates resolved IPs before
+// connecting. This prevents SSRF via DNS rebinding or redirect-based attacks,
+// since the IP check happens at dial time (after DNS resolution).
+func NewSafeTransport() *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if IsPrivateIP(ip.IP) {
+					return nil, fmt.Errorf("blocked: %s resolves to private IP", host)
+				}
+			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no addresses found for %s", host)
+			}
+			dialer := &net.Dialer{Timeout: 5 * time.Second}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	}
 }
 
 // ValidateURLForHealthCheck validates a URL is safe for health checking.

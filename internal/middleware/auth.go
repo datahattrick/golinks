@@ -12,6 +12,9 @@ import (
 	"golinks/internal/models"
 )
 
+// cnUsernameRe extracts the username from a CN like "Full Name (username)".
+var cnUsernameRe = regexp.MustCompile(`\(([^)]+)\)\s*$`)
+
 // AuthMiddleware handles user authentication via sessions and PKI.
 type AuthMiddleware struct {
 	db               *db.DB
@@ -42,12 +45,12 @@ func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 		return m.redirectToLogin(c, nil)
 	}
 
-	userSub := sess.Get("user_sub")
-	if userSub == nil {
+	userSub, ok := sess.Get("user_sub").(string)
+	if !ok || userSub == "" {
 		return m.redirectToLogin(c, sess)
 	}
 
-	user, err := m.db.GetUserBySub(c.Context(), userSub.(string))
+	user, err := m.db.GetUserBySub(c.Context(), userSub)
 	if err != nil {
 		sess.Destroy()
 		return m.redirectToLogin(c, nil)
@@ -120,8 +123,7 @@ func (m *AuthMiddleware) extractUsernameFromCert(c fiber.Ctx) string {
 // Returns the username in parentheses, or empty string if not found.
 func extractUsernameFromCN(cn string) string {
 	// Match content within parentheses at the end: "Heath Taylor (heatht)" -> "heatht"
-	re := regexp.MustCompile(`\(([^)]+)\)\s*$`)
-	matches := re.FindStringSubmatch(cn)
+	matches := cnUsernameRe.FindStringSubmatch(cn)
 	if len(matches) >= 2 {
 		return strings.TrimSpace(matches[1])
 	}
@@ -143,12 +145,12 @@ func (m *AuthMiddleware) OptionalAuth(c fiber.Ctx) error {
 		return c.Next()
 	}
 
-	userSub := sess.Get("user_sub")
-	if userSub == nil {
+	userSub, ok := sess.Get("user_sub").(string)
+	if !ok || userSub == "" {
 		return c.Next()
 	}
 
-	user, err := m.db.GetUserBySub(c.Context(), userSub.(string))
+	user, err := m.db.GetUserBySub(c.Context(), userSub)
 	if err == nil {
 		m.loadGroupMemberships(c, user)
 		c.Locals("user", user)

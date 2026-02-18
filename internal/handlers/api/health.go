@@ -25,7 +25,8 @@ func NewHealthHandler(database *db.DB) *HealthHandler {
 	return &HealthHandler{
 		db: database,
 		client: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout:   5 * time.Second,
+			Transport: validation.NewSafeTransport(),
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 10 {
 					return errors.New("too many redirects")

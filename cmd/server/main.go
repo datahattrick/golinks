@@ -23,6 +23,9 @@ func main() {
 	// Initialize structured logger
 	initLogger(cfg.LogLevel)
 
+	// Validate configuration
+	cfg.Validate()
+
 	// Log startup configuration (omit secrets)
 	slog.Info("configuration loaded",
 		"env", cfg.Env,

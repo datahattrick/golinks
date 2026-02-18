@@ -27,7 +27,8 @@ func NewHealthChecker(database *db.DB, interval, maxAge time.Duration) *HealthCh
 		interval: interval,
 		maxAge:   maxAge,
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: validation.NewSafeTransport(),
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 10 {
 					return errors.New("too many redirects")

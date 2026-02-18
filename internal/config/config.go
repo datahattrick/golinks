@@ -1,7 +1,9 @@
 package config
 
 import (
+	"log/slog"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -120,8 +122,8 @@ func Load() *Config {
 		EnableAnimatedBackground: getEnv("ENABLE_ANIMATED_BACKGROUND", "") != "",
 
 		BannerText:      getEnv("BANNER_TEXT", ""),
-		BannerTextColor: getEnv("BANNER_TEXT_COLOR", "#ffffff"),
-		BannerBGColor:   getEnv("BANNER_BG_COLOR", "#0891b2"),
+		BannerTextColor: sanitizeCSSColor(getEnv("BANNER_TEXT_COLOR", "#ffffff"), "#ffffff"),
+		BannerBGColor:   sanitizeCSSColor(getEnv("BANNER_BG_COLOR", "#0891b2"), "#0891b2"),
 
 		// Logging
 		LogLevel: strings.ToLower(getEnv("LOG_LEVEL", "info")),
@@ -202,6 +204,32 @@ func parseStringList(val string) []string {
 		}
 	}
 	return result
+}
+
+// cssColorRe matches hex colors (#rgb, #rrggbb, #rrggbbaa).
+var cssColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+
+// cssNameRe matches simple CSS color names (letters only, max 20 chars).
+var cssNameRe = regexp.MustCompile(`^[a-zA-Z]{1,20}$`)
+
+// sanitizeCSSColor validates a color value, returning the fallback if invalid.
+// Allows hex colors and simple CSS named colors to prevent CSS injection.
+func sanitizeCSSColor(val, fallback string) string {
+	val = strings.TrimSpace(val)
+	if cssColorRe.MatchString(val) {
+		return val
+	}
+	if cssNameRe.MatchString(val) {
+		return val
+	}
+	return fallback
+}
+
+// Validate checks configuration for common issues and logs warnings.
+func (c *Config) Validate() {
+	if c.SessionSecret == "change-me-in-production-min-32-chars" && !c.IsDev() {
+		slog.Warn("SESSION_SECRET is using the default value — set a strong random secret in production")
+	}
 }
 
 // parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
