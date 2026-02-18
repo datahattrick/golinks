@@ -75,6 +75,8 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 		s.App.Delete("/my-links/share/:id", authMiddleware.RequireAuth, sharedLinkHandler.Decline)
 		s.App.Delete("/my-links/share/:id/withdraw", authMiddleware.RequireAuth, sharedLinkHandler.Withdraw)
 
+		s.App.Get("/my-links/:id/edit", authMiddleware.RequireAuth, userLinkHandler.Edit)
+		s.App.Put("/my-links/:id", authMiddleware.RequireAuth, userLinkHandler.Update)
 		s.App.Delete("/my-links/:id", authMiddleware.RequireAuth, userLinkHandler.Delete)
 	}
 

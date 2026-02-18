@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/gofiber/fiber/v3 v3.0.0
+	github.com/gofiber/storage/postgres/v3 v3.3.2
 	github.com/gofiber/template/html/v3 v3.0.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0

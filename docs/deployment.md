@@ -37,6 +37,7 @@ docker run -d \
   -e OIDC_CLIENT_ID="your-client-id" \
   -e OIDC_CLIENT_SECRET="your-client-secret" \
   -e SESSION_SECRET="your-32-char-secret-here" \
+  -e SESSION_STORE="postgres" \
   -e LOG_LEVEL="info" \
   qskhattrick/golinks:latest
 ```
@@ -146,6 +147,8 @@ spec:
                 secretKeyRef:
                   name: golinks-secrets
                   key: session-secret
+            - name: SESSION_STORE
+              value: "postgres"
             - name: OIDC_ISSUER
               value: "https://accounts.google.com"
             - name: OIDC_CLIENT_ID

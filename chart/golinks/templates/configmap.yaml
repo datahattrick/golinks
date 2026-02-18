@@ -21,6 +21,7 @@ data:
   BANNER_TEXT_COLOR: {{ .Values.config.banner.textColor | quote }}
   BANNER_BG_COLOR: {{ .Values.config.banner.bgColor | quote }}
   {{- end }}
+  SESSION_STORE: {{ .Values.config.sessionStore | quote }}
   ENABLE_RANDOM_KEYWORDS: {{ .Values.config.features.randomKeywords | quote }}
   ENABLE_PERSONAL_LINKS: {{ .Values.config.features.personalLinks | quote }}
   ENABLE_ORG_LINKS: {{ .Values.config.features.orgLinks | quote }}

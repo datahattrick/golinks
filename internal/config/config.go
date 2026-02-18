@@ -39,6 +39,7 @@ type Config struct {
 
 	// Session
 	SessionSecret string // Used for signing cookies (min 32 chars)
+	SessionStore  string // "memory" (default) or "postgres"
 
 	// CORS
 	CORSOrigins string // Comma-separated allowed origins, e.g. "https://example.com,https://app.example.com"
@@ -105,6 +106,7 @@ func Load() *Config {
 		OIDCAdminGroups:     parseStringList(getEnv("OIDC_ADMIN_GROUPS", "")),
 		OIDCModeratorGroups: parseStringList(getEnv("OIDC_MODERATOR_GROUPS", "")),
 		SessionSecret:    getEnv("SESSION_SECRET", "change-me-in-production-min-32-chars"),
+		SessionStore:     strings.ToLower(getEnv("SESSION_STORE", "memory")),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
 		EnablePersonalLinks:  getEnv("ENABLE_PERSONAL_LINKS", "true") != "false",

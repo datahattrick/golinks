@@ -51,6 +51,18 @@ export SERVER_ADDR=:3001
 lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill
 ```
 
+## Sessions Lost After Login (Multi-Pod)
+
+If users are redirected back to login after authenticating, sessions may not be shared across pods. The default in-memory session store is per-process.
+
+Set `SESSION_STORE=postgres` to store sessions in PostgreSQL, shared across all pods:
+
+```bash
+SESSION_STORE=postgres
+```
+
+This uses the same `DATABASE_URL` and auto-creates a `fiber_sessions` table.
+
 ## Links Not Resolving
 
 - Verify the link status is `approved`

@@ -15,6 +15,7 @@ A self-hosted URL shortener for teams. Create memorable short links like `docs` 
 - Per-org fallback redirects and tier-based group resolution
 - Configurable site banner with custom text and colors
 - Structured logging with configurable log levels
+- PostgreSQL-backed session store for multi-pod deployments
 - Helm chart with OpenShift support
 - Dark mode
 

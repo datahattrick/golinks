@@ -245,6 +245,10 @@ config:
     # -- Enable organization link scopes
     orgLinks: true
 
+  # -- Session storage backend ("memory" or "postgres")
+  # Use "postgres" for multi-replica deployments to share sessions across pods
+  sessionStore: "memory"
+
   # -- Health check settings
   healthCheck:
     # -- Interval between health checks

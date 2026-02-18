@@ -18,6 +18,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/fiber/v3/middleware/static"
+	pgstore "github.com/gofiber/storage/postgres/v3"
 	"github.com/gofiber/template/html/v3"
 
 	"golinks/internal/config"
@@ -130,11 +131,22 @@ func New(cfg *config.Config) *Server {
 	}))
 
 	// Session middleware
-	sessionMiddleware, _ := session.NewWithStore(session.Config{
+	sessionCfg := session.Config{
 		CookieSecure:   cfg.TLSEnabled || !cfg.IsDev(),
 		CookieHTTPOnly: true,
 		CookieSameSite: "Lax",
-	})
+	}
+	if cfg.SessionStore == "postgres" {
+		sessionCfg.Storage = pgstore.New(pgstore.Config{
+			ConnectionURI: cfg.DatabaseURL,
+			Table:         "fiber_sessions",
+			GCInterval:    10 * time.Minute,
+		})
+		slog.Info("session store: postgres")
+	} else {
+		slog.Info("session store: memory")
+	}
+	sessionMiddleware, _ := session.NewWithStore(sessionCfg)
 	app.Use(sessionMiddleware)
 
 	// Rate limiting middleware - 100 requests per minute per IP

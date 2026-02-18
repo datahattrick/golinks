@@ -9,7 +9,7 @@
     </td>
     <td class="py-3 text-right font-mono text-sm text-gray-700 dark:text-gray-400">{{.ClickCount}}</td>
     {{if $.User}}
-    <td class="py-3 pl-4 text-right">
+    <td class="py-3 pl-4 text-right whitespace-nowrap">
         {{if .CreatedBy}}
             {{if eq .CreatedBy.String $.User.ID.String}}
             <button

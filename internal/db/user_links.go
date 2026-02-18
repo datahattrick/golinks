@@ -72,6 +72,39 @@ func (d *DB) GetUserLinkByKeyword(ctx context.Context, userID uuid.UUID, keyword
 	return &link, nil
 }
 
+// GetUserLinkByID retrieves a user's link override by ID, scoped to the user.
+func (d *DB) GetUserLinkByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*models.UserLink, error) {
+	query := `
+		SELECT id, user_id, keyword, url, description, click_count, created_at, updated_at,
+		       health_status, health_checked_at, health_error
+		FROM user_links WHERE id = $1 AND user_id = $2
+	`
+
+	var link models.UserLink
+	err := d.Pool.QueryRow(ctx, query, id, userID).Scan(
+		&link.ID,
+		&link.UserID,
+		&link.Keyword,
+		&link.URL,
+		&link.Description,
+		&link.ClickCount,
+		&link.CreatedAt,
+		&link.UpdatedAt,
+		&link.HealthStatus,
+		&link.HealthCheckedAt,
+		&link.HealthError,
+	)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserLinkNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &link, nil
+}
+
 // GetUserLinks retrieves all link overrides for a user.
 func (d *DB) GetUserLinks(ctx context.Context, userID uuid.UUID) ([]models.UserLink, error) {
 	query := `

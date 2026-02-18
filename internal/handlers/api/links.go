@@ -268,10 +268,6 @@ func (h *LinkHandler) Update(c fiber.Ctx) error {
 		return jsonError(c, fiber.StatusUnauthorized, "unauthorized")
 	}
 
-	if !user.IsOrgMod() {
-		return jsonError(c, fiber.StatusForbidden, "moderator access required")
-	}
-
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return jsonError(c, fiber.StatusBadRequest, "invalid link id")
@@ -286,7 +282,7 @@ func (h *LinkHandler) Update(c fiber.Ctx) error {
 	}
 
 	if !canManageLink(user, link) {
-		return jsonError(c, fiber.StatusForbidden, "you do not have permission to manage this link")
+		return jsonError(c, fiber.StatusForbidden, "you do not have permission to edit this link")
 	}
 
 	var body struct {
@@ -415,3 +411,4 @@ func canManageLink(user *models.User, link *models.Link) bool {
 	}
 	return false
 }
+

@@ -117,6 +117,70 @@ func (h *UserLinkHandler) Create(c fiber.Ctx) error {
 	}, "")
 }
 
+// Edit renders the inline edit form for a personal link.
+func (h *UserLinkHandler) Edit(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
+
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid link ID")
+	}
+
+	link, err := h.db.GetUserLinkByID(c.Context(), id, user.ID)
+	if err != nil {
+		if errors.Is(err, db.ErrUserLinkNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Link not found")
+		}
+		return err
+	}
+
+	return c.Render("partials/user_link_edit_form", fiber.Map{
+		"Link": link,
+		"User": user,
+	}, "")
+}
+
+// Update saves changes to a personal link.
+func (h *UserLinkHandler) Update(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
+
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid link ID")
+	}
+
+	link, err := h.db.GetUserLinkByID(c.Context(), id, user.ID)
+	if err != nil {
+		if errors.Is(err, db.ErrUserLinkNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Link not found")
+		}
+		return err
+	}
+
+	newURL := c.FormValue("url")
+	newDescription := c.FormValue("description")
+
+	if newURL == "" {
+		return htmxError(c, "URL is required")
+	}
+
+	if valid, msg := validation.ValidateURL(newURL); !valid {
+		return htmxError(c, msg)
+	}
+
+	link.URL = newURL
+	link.Description = newDescription
+
+	if err := h.db.UpdateUserLink(c.Context(), link); err != nil {
+		return err
+	}
+
+	return c.Render("partials/user_link_card", fiber.Map{
+		"Link": link,
+		"User": user,
+	}, "")
+}
+
 // Delete removes a user link override.
 func (h *UserLinkHandler) Delete(c fiber.Ctx) error {
 	user := c.Locals("user").(*models.User)

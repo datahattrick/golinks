@@ -11,6 +11,7 @@ All settings are configured via environment variables. Copy `.env.example` to `.
 | `BASE_URL` | Public base URL for redirects | `http://localhost:3000` | No |
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://localhost:5432/golinks` | Yes |
 | `SESSION_SECRET` | Cookie signing secret (min 32 chars) | - | Yes (production) |
+| `SESSION_STORE` | Session storage backend: `memory` or `postgres` | `memory` | No |
 
 ## OIDC Authentication
 
@@ -137,6 +138,16 @@ Set `LOG_LEVEL=debug` to see detailed startup diagnostics and middleware registr
 | `CORS_ORIGINS` | Comma-separated allowed CORS origins | (none) |
 
 **Simple Mode**: When both `ENABLE_PERSONAL_LINKS` and `ENABLE_ORG_LINKS` are `false`, only global links are available and `/go/:keyword` does not require authentication.
+
+## Session Storage
+
+By default, sessions are stored in-memory. This works for single-instance deployments but sessions are lost on restart and cannot be shared across multiple pods.
+
+For multi-instance deployments (Kubernetes, etc.), set `SESSION_STORE=postgres` to store sessions in PostgreSQL. This uses the same `DATABASE_URL` connection and automatically creates a `fiber_sessions` table. Expired sessions are garbage-collected every 10 minutes.
+
+```bash
+SESSION_STORE=postgres
+```
 
 ## Organization Fallbacks
 
