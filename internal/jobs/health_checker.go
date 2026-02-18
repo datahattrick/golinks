@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"log"
 	"net/http"
@@ -29,9 +28,6 @@ func NewHealthChecker(database *db.DB, interval, maxAge time.Duration) *HealthCh
 		maxAge:   maxAge,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 10 {
 					return errors.New("too many redirects")

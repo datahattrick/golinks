@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"net/http"
 	"time"
@@ -27,9 +26,6 @@ func NewHealthHandler(database *db.DB) *HealthHandler {
 		db: database,
 		client: &http.Client{
 			Timeout: 5 * time.Second,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 10 {
 					return errors.New("too many redirects")

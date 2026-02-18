@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gofiber/fiber/v3"
@@ -203,10 +204,11 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	// Store session
 	sess.Set("user_sub", sub)
 
-	// Redirect to original URL if stored, otherwise home
+	// Redirect to original URL if stored, otherwise home.
+	// Validate that the redirect is a safe relative path to prevent open redirects.
 	redirectURL := "/"
 	if savedRedirect := sess.Get("redirect_after_login"); savedRedirect != nil {
-		if url, ok := savedRedirect.(string); ok && url != "" {
+		if url, ok := savedRedirect.(string); ok && isSafeRedirect(url) {
 			redirectURL = url
 		}
 		sess.Delete("redirect_after_login")
@@ -228,6 +230,26 @@ func generateState() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+// isSafeRedirect validates that a redirect URL is a relative path on this server.
+// Rejects empty strings, protocol-relative URLs (//evil.com), absolute URLs,
+// and paths containing backslashes or control characters.
+func isSafeRedirect(url string) bool {
+	if url == "" || url[0] != '/' {
+		return false
+	}
+	// Block protocol-relative URLs (//evil.com) and backslash variants
+	if strings.HasPrefix(url, "//") || strings.HasPrefix(url, "/\\") {
+		return false
+	}
+	// Block URLs containing control characters
+	for _, c := range url {
+		if c < 0x20 || c == 0x7f {
+			return false
+		}
+	}
+	return true
 }
 
 // extractGroups pulls a string slice out of a claims map value that may be
