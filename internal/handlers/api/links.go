@@ -75,6 +75,7 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		URL         string `json:"url"`
 		Description string `json:"description"`
 		Scope       string `json:"scope"`
+		Reason      string `json:"reason"`
 	}
 	if err := json.Unmarshal(c.Body(), &body); err != nil {
 		return jsonError(c, fiber.StatusBadRequest, "invalid request body")
@@ -116,9 +117,9 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		if !h.cfg.EnableOrgLinks {
 			return jsonError(c, fiber.StatusBadRequest, "organization links are not enabled")
 		}
-		return h.createOrgLink(c, user, body.Keyword, body.URL, body.Description)
+		return h.createOrgLink(c, user, body.Keyword, body.URL, body.Description, body.Reason)
 	case "global":
-		return h.createGlobalLink(c, user, body.Keyword, body.URL, body.Description)
+		return h.createGlobalLink(c, user, body.Keyword, body.URL, body.Description, body.Reason)
 	default:
 		return jsonError(c, fiber.StatusBadRequest, "invalid scope")
 	}
@@ -146,7 +147,7 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 	})
 }
 
-func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
+func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description, reason string) error {
 	var orgID *uuid.UUID
 
 	// Admins can create org links for any organization via organization_id in body
@@ -181,6 +182,7 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		Description:    description,
 		Scope:          models.ScopeOrg,
 		OrganizationID: orgID,
+		Reason:         reason,
 	}
 
 	if user.IsAdmin() || user.CanModerateOrg(*orgID) {
@@ -218,12 +220,13 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 	})
 }
 
-func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
+func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, url, description, reason string) error {
 	link := &models.Link{
 		Keyword:     keyword,
 		URL:         url,
 		Description: description,
 		Scope:       models.ScopeGlobal,
+		Reason:      reason,
 	}
 
 	if user.IsGlobalMod() {
@@ -407,7 +410,13 @@ func canManageLink(user *models.User, link *models.Link) bool {
 		return true
 	}
 	if link.Scope == models.ScopeOrg && link.OrganizationID != nil {
-		return user.CanModerateOrg(*link.OrganizationID)
+		if user.CanModerateOrg(*link.OrganizationID) {
+			return true
+		}
+	}
+	// Users can manage links they authored
+	if link.CreatedBy != nil && *link.CreatedBy == user.ID {
+		return true
 	}
 	return false
 }

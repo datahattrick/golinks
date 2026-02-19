@@ -232,6 +232,7 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 	url := c.FormValue("url")
 	description := c.FormValue("description")
 	scope := c.FormValue("scope")
+	reason := c.FormValue("reason")
 
 	if rawKeywords == "" || url == "" {
 		return htmxError(c, "Keyword and URL are required")
@@ -279,9 +280,9 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 			if !h.cfg.EnableOrgLinks {
 				return htmxError(c, "Organization links are not enabled")
 			}
-			return h.createOrgLink(c, user, keywords[0], url, description)
+			return h.createOrgLink(c, user, keywords[0], url, description, reason)
 		case "global":
-			return h.createGlobalLink(c, user, keywords[0], url, description)
+			return h.createGlobalLink(c, user, keywords[0], url, description, reason)
 		default:
 			return htmxError(c, "Invalid scope")
 		}
@@ -291,7 +292,7 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 	var created []string
 	var errMsgs []string
 	for _, kw := range keywords {
-		if errMsg := h.saveLinkForKeyword(c, user, kw, url, description, scope); errMsg != "" {
+		if errMsg := h.saveLinkForKeyword(c, user, kw, url, description, scope, reason); errMsg != "" {
 			errMsgs = append(errMsgs, kw+": "+errMsg)
 		} else {
 			created = append(created, kw)
@@ -321,7 +322,7 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 
 // saveLinkForKeyword performs the DB work for creating a link without rendering a response.
 // Returns an error message string (empty on success).
-func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword, url, description, scope string) string {
+func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword, url, description, scope, reason string) string {
 	switch scope {
 	case "personal":
 		if !h.cfg.EnablePersonalLinks {
@@ -370,6 +371,7 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 			Description:    description,
 			Scope:          models.ScopeOrg,
 			OrganizationID: orgID,
+			Reason:         reason,
 		}
 		if user.IsAdmin() || user.CanModerateOrg(*orgID) {
 			link.CreatedBy = &user.ID
@@ -399,6 +401,7 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 			URL:         url,
 			Description: description,
 			Scope:       models.ScopeGlobal,
+			Reason:      reason,
 		}
 		if user.IsGlobalMod() {
 			link.CreatedBy = &user.ID
@@ -450,7 +453,7 @@ func (h *LinkHandler) createPersonalLink(c fiber.Ctx, user *models.User, keyword
 }
 
 // createOrgLink creates an org-scoped link.
-func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
+func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url, description, reason string) error {
 	var orgID *uuid.UUID
 
 	// Admins can create org links for any organization
@@ -480,6 +483,7 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		Description:    description,
 		Scope:          models.ScopeOrg,
 		OrganizationID: orgID,
+		Reason:         reason,
 	}
 
 	// Admins and org mods can create links directly, others need approval
@@ -520,12 +524,13 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 }
 
 // createGlobalLink creates a global-scoped link.
-func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, url, description string) error {
+func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, url, description, reason string) error {
 	link := &models.Link{
 		Keyword:     keyword,
 		URL:         url,
 		Description: description,
 		Scope:       models.ScopeGlobal,
+		Reason:      reason,
 	}
 
 	// Global mods can create links directly, others need approval
@@ -613,6 +618,118 @@ func (h *LinkHandler) Delete(c fiber.Ctx) error {
 
 	// Return empty response for HTMX to remove the element
 	return c.SendString("")
+}
+
+// SuggestEdit renders the inline suggest-edit form for a link on the browse page.
+// If ?cancel=true, it re-renders the original browse link row instead.
+func (h *LinkHandler) SuggestEdit(c fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	idStr := c.Params("id")
+	linkID, err := uuid.Parse(idStr)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid link id")
+	}
+
+	link, err := h.db.GetLinkByID(c.Context(), linkID)
+	if err != nil {
+		if errors.Is(err, db.ErrLinkNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "link not found")
+		}
+		return err
+	}
+
+	// Cancel: re-render the original browse link row
+	if c.Query("cancel") == "true" {
+		orgNames := make(map[string]string)
+		if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
+			for _, org := range orgs {
+				orgNames[org.ID.String()] = org.Name
+			}
+		}
+		return c.Render("partials/browse_link_row", fiber.Map{
+			"Link":     link,
+			"User":     user,
+			"OrgNames": orgNames,
+		}, "")
+	}
+
+	return c.Render("partials/suggest_edit_form", fiber.Map{
+		"Link": link,
+		"User": user,
+	}, "")
+}
+
+// SubmitSuggestEdit creates an edit request from the browse page.
+// Any authenticated user can suggest edits to global/org links.
+func (h *LinkHandler) SubmitSuggestEdit(c fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	idStr := c.Params("id")
+	linkID, err := uuid.Parse(idStr)
+	if err != nil {
+		return htmxError(c, "Invalid link ID")
+	}
+
+	link, err := h.db.GetLinkByID(c.Context(), linkID)
+	if err != nil {
+		if errors.Is(err, db.ErrLinkNotFound) {
+			return htmxError(c, "Link not found")
+		}
+		return err
+	}
+
+	newURL := c.FormValue("url")
+	newDescription := c.FormValue("description")
+	reason := c.FormValue("reason")
+
+	if newURL == "" {
+		return htmxError(c, "URL is required")
+	}
+	if reason == "" {
+		return htmxError(c, "A reason is required for edit suggestions")
+	}
+	if valid, msg := validation.ValidateURL(newURL); !valid {
+		return htmxError(c, msg)
+	}
+
+	req := &models.LinkEditRequest{
+		LinkID:      linkID,
+		UserID:      user.ID,
+		URL:         newURL,
+		Description: newDescription,
+		Reason:      reason,
+	}
+
+	if err := h.db.CreateEditRequest(c.Context(), req); err != nil {
+		if errors.Is(err, db.ErrPendingRequestLimit) {
+			return htmxError(c, err.Error())
+		}
+		if errors.Is(err, db.ErrDuplicateEditRequest) {
+			return htmxError(c, "You already have a pending edit suggestion for this link")
+		}
+		return err
+	}
+
+	orgNames := make(map[string]string)
+	if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
+		for _, org := range orgs {
+			orgNames[org.ID.String()] = org.Name
+		}
+	}
+
+	return c.Render("partials/browse_link_row", fiber.Map{
+		"Link":        link,
+		"User":        user,
+		"OrgNames":    orgNames,
+		"EditMessage": "Edit suggestion submitted for review",
+	}, "")
 }
 
 // CheckKeyword checks if a keyword already exists for the given scope.

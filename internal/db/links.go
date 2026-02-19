@@ -21,7 +21,7 @@ var (
 
 // linkColumns is the standard column list for link queries.
 const linkColumns = `id, keyword, url, description, scope, organization_id, status,
-	created_by, submitted_by, reviewed_by, reviewed_at, click_count, created_at, updated_at,
+	created_by, submitted_by, reviewed_by, reviewed_at, reason, click_count, created_at, updated_at,
 	health_status, health_checked_at, health_error`
 
 // scanLink scans a row into a Link struct.
@@ -39,6 +39,7 @@ func scanLink(row pgx.Row) (*models.Link, error) {
 		&link.SubmittedBy,
 		&link.ReviewedBy,
 		&link.ReviewedAt,
+		&link.Reason,
 		&link.ClickCount,
 		&link.CreatedAt,
 		&link.UpdatedAt,
@@ -74,6 +75,7 @@ func scanLinks(rows pgx.Rows) ([]models.Link, error) {
 			&link.SubmittedBy,
 			&link.ReviewedBy,
 			&link.ReviewedAt,
+			&link.Reason,
 			&link.ClickCount,
 			&link.CreatedAt,
 			&link.UpdatedAt,
@@ -92,8 +94,8 @@ func scanLinks(rows pgx.Rows) ([]models.Link, error) {
 // CreateLink creates a new link (for moderators creating approved links directly).
 func (d *DB) CreateLink(ctx context.Context, link *models.Link) error {
 	query := `
-		INSERT INTO links (keyword, url, description, scope, organization_id, status, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO links (keyword, url, description, scope, organization_id, status, created_by, reason)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, click_count, created_at, updated_at
 	`
 
@@ -111,6 +113,7 @@ func (d *DB) CreateLink(ctx context.Context, link *models.Link) error {
 		link.OrganizationID,
 		status,
 		link.CreatedBy,
+		link.Reason,
 	).Scan(&link.ID, &link.ClickCount, &link.CreatedAt, &link.UpdatedAt)
 
 	if err != nil {
@@ -128,8 +131,8 @@ func (d *DB) CreateLink(ctx context.Context, link *models.Link) error {
 // SubmitLinkForApproval creates a new link with pending status for moderator review.
 func (d *DB) SubmitLinkForApproval(ctx context.Context, link *models.Link) error {
 	query := `
-		INSERT INTO links (keyword, url, description, scope, organization_id, status, submitted_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO links (keyword, url, description, scope, organization_id, status, submitted_by, reason)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, click_count, created_at, updated_at
 	`
 
@@ -141,6 +144,7 @@ func (d *DB) SubmitLinkForApproval(ctx context.Context, link *models.Link) error
 		link.OrganizationID,
 		models.StatusPending,
 		link.SubmittedBy,
+		link.Reason,
 	).Scan(&link.ID, &link.ClickCount, &link.CreatedAt, &link.UpdatedAt)
 
 	if err != nil {
@@ -539,39 +543,109 @@ func (d *DB) UpdateLinkHealthStatus(ctx context.Context, linkID uuid.UUID, statu
 }
 
 // GetLinksForManagement retrieves links for the management page based on user role and filter.
+// For moderators/admins, includes author info via JOIN.
 func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healthFilter string, limit int) ([]models.Link, error) {
 	var sql string
 	var args []any
 
 	// Build the base query based on user role
 	if user.IsGlobalMod() {
-		// Global mods and admins can see all approved links
+		// Global mods and admins can see all approved + deletion_requested links
 		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1
+			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+				l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+				COALESCE(u.name, ''), COALESCE(u.email, '')
+			FROM links l
+			LEFT JOIN users u ON u.id = COALESCE(l.created_by, l.submitted_by)
+			WHERE l.status IN ($1, $2)
 		`
-		args = []any{models.StatusApproved}
+		args = []any{models.StatusApproved, models.StatusDeletionRequested}
 	} else if user.IsOrgMod() && user.OrganizationID != nil {
 		// Org mods can only see their org's links
 		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND scope = $2 AND organization_id = $3
+			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+				l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+				COALESCE(u.name, ''), COALESCE(u.email, '')
+			FROM links l
+			LEFT JOIN users u ON u.id = COALESCE(l.created_by, l.submitted_by)
+			WHERE l.status IN ($1, $2) AND l.scope = $3 AND l.organization_id = $4
 		`
-		args = []any{models.StatusApproved, models.ScopeOrg, *user.OrganizationID}
+		args = []any{models.StatusApproved, models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
 	} else {
-		// Regular users shouldn't reach here, but return empty
-		return []models.Link{}, nil
+		// Regular users see only their own authored links
+		return d.GetAuthoredLinksForUser(ctx, user.ID, healthFilter, limit)
 	}
 
 	// Apply health filter
+	if healthFilter != "" && healthFilter != "all" {
+		sql += ` AND l.health_status = $` + strconv.Itoa(len(args)+1)
+		args = append(args, healthFilter)
+	}
+
+	// Order and limit
+	sql += ` ORDER BY l.keyword ASC LIMIT $` + strconv.Itoa(len(args)+1)
+	args = append(args, limit)
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinksWithAuthor(rows)
+}
+
+// scanLinksWithAuthor scans link rows that include author name and email columns.
+func scanLinksWithAuthor(rows pgx.Rows) ([]models.Link, error) {
+	defer rows.Close()
+
+	var links []models.Link
+	for rows.Next() {
+		var link models.Link
+		if err := rows.Scan(
+			&link.ID,
+			&link.Keyword,
+			&link.URL,
+			&link.Description,
+			&link.Scope,
+			&link.OrganizationID,
+			&link.Status,
+			&link.CreatedBy,
+			&link.SubmittedBy,
+			&link.ReviewedBy,
+			&link.ReviewedAt,
+			&link.Reason,
+			&link.ClickCount,
+			&link.CreatedAt,
+			&link.UpdatedAt,
+			&link.HealthStatus,
+			&link.HealthCheckedAt,
+			&link.HealthError,
+			&link.AuthorName,
+			&link.AuthorEmail,
+		); err != nil {
+			return nil, err
+		}
+		links = append(links, link)
+	}
+
+	return links, rows.Err()
+}
+
+// GetAuthoredLinksForUser returns links where the user is the author.
+func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, limit int) ([]models.Link, error) {
+	sql := `
+		SELECT ` + linkColumns + `
+		FROM links
+		WHERE (created_by = $1 OR (submitted_by = $1 AND status IN ($2, $3)))
+	`
+	args := []any{userID, models.StatusPending, models.StatusDeletionRequested}
+
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
 	}
 
-	// Order and limit
 	sql += ` ORDER BY keyword ASC LIMIT $` + strconv.Itoa(len(args)+1)
 	args = append(args, limit)
 
@@ -580,6 +654,116 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 		return nil, err
 	}
 	return scanLinks(rows)
+}
+
+// RequestLinkDeletion sets a link's status to deletion_requested.
+func (d *DB) RequestLinkDeletion(ctx context.Context, linkID uuid.UUID, reason string) error {
+	query := `
+		UPDATE links
+		SET status = $1, reason = $2, updated_at = NOW()
+		WHERE id = $3 AND status = $4
+	`
+	result, err := d.Pool.Exec(ctx, query,
+		models.StatusDeletionRequested,
+		reason,
+		linkID,
+		models.StatusApproved,
+	)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrLinkNotFound
+	}
+	return nil
+}
+
+// ApproveDeletion deletes a link that has a deletion request.
+func (d *DB) ApproveDeletion(ctx context.Context, linkID uuid.UUID) error {
+	query := `DELETE FROM links WHERE id = $1 AND status = $2`
+	result, err := d.Pool.Exec(ctx, query, linkID, models.StatusDeletionRequested)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrLinkNotFound
+	}
+	return nil
+}
+
+// RejectDeletion restores a link from deletion_requested back to approved.
+func (d *DB) RejectDeletion(ctx context.Context, linkID uuid.UUID, reviewerID uuid.UUID) error {
+	query := `
+		UPDATE links
+		SET status = $1, reason = '', reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
+		WHERE id = $3 AND status = $4
+	`
+	result, err := d.Pool.Exec(ctx, query,
+		models.StatusApproved,
+		reviewerID,
+		linkID,
+		models.StatusDeletionRequested,
+	)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrLinkNotFound
+	}
+	return nil
+}
+
+// CountPendingRequestsByUser counts all pending requests (submissions, deletion requests, edit requests) by a user.
+func (d *DB) CountPendingRequestsByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM links WHERE submitted_by = $1 AND status = $2) +
+			(SELECT COUNT(*) FROM links WHERE created_by = $1 AND status = $3) +
+			(SELECT COUNT(*) FROM link_edit_requests WHERE user_id = $1 AND status = $2)
+	`
+	var count int
+	err := d.Pool.QueryRow(ctx, query, userID, models.StatusPending, models.StatusDeletionRequested).Scan(&count)
+	return count, err
+}
+
+// GetPendingDeletionRequests gets links with deletion_requested status scoped by user role.
+func (d *DB) GetPendingDeletionRequests(ctx context.Context, user *models.User) ([]models.Link, error) {
+	var sql string
+	var args []any
+
+	if user.IsGlobalMod() {
+		sql = `
+			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+				l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+				COALESCE(u.name, ''), COALESCE(u.email, '')
+			FROM links l
+			LEFT JOIN users u ON u.id = COALESCE(l.created_by, l.submitted_by)
+			WHERE l.status = $1
+			ORDER BY l.updated_at ASC
+		`
+		args = []any{models.StatusDeletionRequested}
+	} else if user.IsOrgMod() && user.OrganizationID != nil {
+		sql = `
+			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+				l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+				COALESCE(u.name, ''), COALESCE(u.email, '')
+			FROM links l
+			LEFT JOIN users u ON u.id = COALESCE(l.created_by, l.submitted_by)
+			WHERE l.status = $1 AND l.scope = $2 AND l.organization_id = $3
+			ORDER BY l.updated_at ASC
+		`
+		args = []any{models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
+	} else {
+		return []models.Link{}, nil
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinksWithAuthor(rows)
 }
 
 // GetTopUsedLinksForUser retrieves the most used keywords for a user (personal + org + global).
@@ -594,7 +778,7 @@ func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID
 				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
 					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
 					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
-					click_count, created_at, updated_at,
+					'' as reason, click_count, created_at, updated_at,
 					health_status, health_checked_at, health_error
 				FROM user_links WHERE user_id = $1
 				UNION ALL
@@ -615,7 +799,7 @@ func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID
 				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
 					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
 					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
-					click_count, created_at, updated_at,
+					'' as reason, click_count, created_at, updated_at,
 					health_status, health_checked_at, health_error
 				FROM user_links WHERE user_id = $1
 				UNION ALL

@@ -1,4 +1,9 @@
 <div class="glass-card rounded-xl p-4 hover:shadow-lg hover:shadow-brand-500/10 transition-all" id="manage-link-{{.Link.ID}}">
+    {{if .EditMessage}}
+    <div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm mb-3">
+        {{.EditMessage}}
+    </div>
+    {{end}}
     <div class="flex items-start justify-between gap-4">
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -9,6 +14,11 @@
                 <span class="px-2 py-0.5 text-xs rounded-full font-medium {{index .OrgColors .Link.OrganizationID.String}}">{{index .OrgNames .Link.OrganizationID.String}}</span>
                 {{else}}
                 <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">org</span>
+                {{end}}
+                {{if eq .Link.Status "pending"}}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">pending</span>
+                {{else if eq .Link.Status "deletion_requested"}}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-medium">deletion requested</span>
                 {{end}}
                 <span id="health-{{.Link.ID}}">
                     {{if eq .Link.HealthStatus "healthy"}}
@@ -41,9 +51,18 @@
             {{end}}
             <div class="flex items-center gap-4 mt-2 text-xs text-gray-600">
                 <span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{{.Link.ClickCount}} clicks</span>
+                {{if and .IsModerator .Link.AuthorName}}
+                <span class="text-gray-500 dark:text-gray-400">by {{.Link.AuthorName}}</span>
+                {{end}}
             </div>
+            {{if and .Link.Reason (eq .Link.Status "deletion_requested")}}
+            <div class="mt-2 text-xs text-red-600 dark:text-red-400">
+                Deletion reason: {{.Link.Reason}}
+            </div>
+            {{end}}
         </div>
         <div class="flex gap-2 flex-shrink-0">
+            {{if .IsModerator}}
             <button
                 hx-post="/health/{{.Link.ID}}"
                 hx-target="#health-{{.Link.ID}}"
@@ -66,6 +85,17 @@
                 class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
                 Delete
             </button>
+            {{else}}
+            {{if eq .Link.Status "approved"}}
+            <button
+                hx-get="/manage/{{.Link.ID}}/edit"
+                hx-target="#manage-link-{{.Link.ID}}"
+                hx-swap="innerHTML"
+                class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-md shadow-brand-500/25">
+                Request Edit
+            </button>
+            {{end}}
+            {{end}}
         </div>
     </div>
 </div>

@@ -1,7 +1,11 @@
 <div class="max-w-4xl mx-auto">
     <div class="mb-6">
         <h1 class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">Manage Links</h1>
-        <p class="text-gray-800 dark:text-gray-400 mt-1">View, edit, and monitor the health of links</p>
+        {{if .IsModerator}}
+        <p class="text-gray-800 dark:text-gray-400 mt-1">View, edit, and monitor the health of all links</p>
+        {{else}}
+        <p class="text-gray-800 dark:text-gray-400 mt-1">View and manage links you've created</p>
+        {{end}}
     </div>
 
     <!-- Filter buttons -->
@@ -13,6 +17,7 @@
             class="px-4 py-2 text-sm rounded-xl transition-all font-medium {{if eq .Filter "all"}}bg-gradient-to-r from-brand-500 to-teal-500 text-white shadow-lg shadow-brand-500/25{{else}}glass-card hover:shadow-md{{end}}">
             All
         </button>
+        {{if .IsModerator}}
         <button
             hx-get="/manage?filter=healthy"
             hx-target="#manage-links-list"
@@ -49,6 +54,7 @@
                 Unknown
             </span>
         </button>
+        {{end}}
     </div>
 
     <!-- Links list container -->

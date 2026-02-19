@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS link_edit_requests;
+ALTER TABLE links DROP COLUMN IF EXISTS reason;

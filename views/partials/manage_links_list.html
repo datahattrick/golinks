@@ -3,6 +3,8 @@
     {{$user := .User}}
     {{$orgNames := .OrgNames}}
     {{$orgColors := .OrgColors}}
+    {{$isMod := .IsModerator}}
+    {{$pendingEdits := .PendingEdits}}
     {{range .Links}}
     <div class="glass-card rounded-xl p-4 hover:shadow-lg hover:shadow-brand-500/10 transition-all" id="manage-link-{{.ID}}">
         <div class="flex items-start justify-between gap-4">
@@ -15,6 +17,14 @@
                     <span class="px-2 py-0.5 text-xs rounded-full font-medium {{index $orgColors .OrganizationID.String}}">{{index $orgNames .OrganizationID.String}}</span>
                     {{else}}
                     <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">org</span>
+                    {{end}}
+                    {{if eq .Status "pending"}}
+                    <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">pending</span>
+                    {{else if eq .Status "deletion_requested"}}
+                    <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-medium">deletion requested</span>
+                    {{end}}
+                    {{if index $pendingEdits .ID.String}}
+                    <span class="px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 font-medium">edit requested</span>
                     {{end}}
                     <span id="health-{{.ID}}">
                         {{if eq .HealthStatus "healthy"}}
@@ -47,9 +57,18 @@
                 {{end}}
                 <div class="flex items-center gap-4 mt-2 text-xs text-gray-600">
                     <span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{{.ClickCount}} clicks</span>
+                    {{if and $isMod .AuthorName}}
+                    <span class="text-gray-500 dark:text-gray-400">by {{.AuthorName}}</span>
+                    {{end}}
                 </div>
+                {{if and .Reason (eq .Status "deletion_requested")}}
+                <div class="mt-2 text-xs text-red-600 dark:text-red-400">
+                    Deletion reason: {{.Reason}}
+                </div>
+                {{end}}
             </div>
             <div class="flex gap-2 flex-shrink-0">
+                {{if $isMod}}
                 <button
                     hx-post="/health/{{.ID}}"
                     hx-target="#health-{{.ID}}"
@@ -72,8 +91,38 @@
                     class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
                     Delete
                 </button>
+                {{else}}
+                {{if eq .Status "approved"}}
+                <button
+                    hx-get="/manage/{{.ID}}/edit"
+                    hx-target="#manage-link-{{.ID}}"
+                    hx-swap="innerHTML"
+                    class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-md shadow-brand-500/25">
+                    Request Edit
+                </button>
+                <button
+                    onclick="this.closest('.glass-card').querySelector('.deletion-form').classList.toggle('hidden')"
+                    class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
+                    Request Deletion
+                </button>
+                {{end}}
+                {{end}}
             </div>
         </div>
+        {{if not $isMod}}
+        {{if eq .Status "approved"}}
+        <div class="deletion-form hidden mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <form hx-post="/manage/{{.ID}}/request-deletion" hx-target="#manage-link-{{.ID}}" hx-swap="outerHTML">
+                <label class="block text-sm font-medium text-red-700 dark:text-red-300 mb-2">Why should this link be deleted?</label>
+                <textarea name="reason" required placeholder="Reason for deletion..." class="w-full px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"></textarea>
+                <div class="flex gap-2 mt-2">
+                    <button type="submit" class="px-3 py-1.5 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors font-medium">Submit Request</button>
+                    <button type="button" onclick="this.closest('.deletion-form').classList.add('hidden')" class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+        {{end}}
+        {{end}}
     </div>
     {{end}}
 </div>
@@ -83,6 +132,10 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
     </svg>
     <p class="text-gray-700 dark:text-gray-400 text-lg">No links found</p>
+    {{if .IsModerator}}
     <p class="text-gray-600 dark:text-gray-500 text-sm mt-2">Try adjusting your filter criteria</p>
+    {{else}}
+    <p class="text-gray-600 dark:text-gray-500 text-sm mt-2">Links you create will appear here</p>
+    {{end}}
 </div>
 {{end}}

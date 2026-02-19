@@ -25,7 +25,7 @@ var orgColorPalette = []string{
 	"bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300",
 }
 
-// ManageHandler handles link management operations for moderators.
+// ManageHandler handles link management operations.
 type ManageHandler struct {
 	db  *db.DB
 	cfg *config.Config
@@ -58,12 +58,9 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
-	// Check if user has management permissions
-	if !user.IsOrgMod() {
-		return fiber.NewError(fiber.StatusForbidden, "you do not have management permissions")
-	}
-
 	filter := c.Query("filter", "all")
+	isModerator := user.IsOrgMod()
+
 	links, err := h.db.GetLinksForManagement(c.Context(), user, filter, 100)
 	if err != nil {
 		return err
@@ -71,24 +68,32 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 
 	orgNames, orgColors := h.buildOrgMaps(c.Context())
 
-	// Check if this is an HTMX request
-	if c.Get("HX-Request") == "true" {
-		return c.Render("partials/manage_links_list", fiber.Map{
-			"Links":     links,
-			"Filter":    filter,
-			"User":      user,
-			"OrgNames":  orgNames,
-			"OrgColors": orgColors,
-		}, "")
+	// Collect link IDs and check which have pending edit requests
+	linkIDs := make([]uuid.UUID, len(links))
+	for i, l := range links {
+		linkIDs[i] = l.ID
+	}
+	pendingEdits, _ := h.db.GetLinkIDsWithPendingEdits(c.Context(), linkIDs)
+	if pendingEdits == nil {
+		pendingEdits = make(map[string]bool)
 	}
 
-	return c.Render("manage", MergeBranding(fiber.Map{
-		"User":      user,
-		"Links":     links,
-		"Filter":    filter,
-		"OrgNames":  orgNames,
-		"OrgColors": orgColors,
-	}, h.cfg))
+	data := fiber.Map{
+		"Links":        links,
+		"Filter":       filter,
+		"User":         user,
+		"OrgNames":     orgNames,
+		"OrgColors":    orgColors,
+		"IsModerator":  isModerator,
+		"PendingEdits": pendingEdits,
+	}
+
+	// Check if this is an HTMX request
+	if c.Get("HX-Request") == "true" {
+		return c.Render("partials/manage_links_list", data, "")
+	}
+
+	return c.Render("manage", MergeBranding(data, h.cfg))
 }
 
 // Edit renders the inline edit form for a link.
@@ -96,10 +101,6 @@ func (h *ManageHandler) Edit(c fiber.Ctx) error {
 	user, ok := c.Locals("user").(*models.User)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
-	}
-
-	if !user.IsOrgMod() {
-		return fiber.NewError(fiber.StatusForbidden, "you do not have management permissions")
 	}
 
 	idStr := c.Params("id")
@@ -122,12 +123,13 @@ func (h *ManageHandler) Edit(c fiber.Ctx) error {
 	}
 
 	return c.Render("partials/manage_edit_form", fiber.Map{
-		"Link": link,
-		"User": user,
+		"Link":        link,
+		"User":        user,
+		"IsModerator": user.IsOrgMod(),
 	}, "")
 }
 
-// Update saves changes to a link.
+// Update saves changes to a link (moderators only — direct edit).
 func (h *ManageHandler) Update(c fiber.Ctx) error {
 	user, ok := c.Locals("user").(*models.User)
 	if !ok {
@@ -182,10 +184,140 @@ func (h *ManageHandler) Update(c fiber.Ctx) error {
 	orgNames, orgColors := h.buildOrgMaps(c.Context())
 
 	return c.Render("partials/manage_link_row", fiber.Map{
-		"Link":      link,
-		"User":      user,
-		"OrgNames":  orgNames,
-		"OrgColors": orgColors,
+		"Link":        link,
+		"User":        user,
+		"OrgNames":    orgNames,
+		"OrgColors":   orgColors,
+		"IsModerator": true,
+	}, "")
+}
+
+// RequestEdit creates an edit request for a link (regular users).
+func (h *ManageHandler) RequestEdit(c fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	idStr := c.Params("id")
+	linkID, err := uuid.Parse(idStr)
+	if err != nil {
+		return htmxError(c, "Invalid link ID")
+	}
+
+	link, err := h.db.GetLinkByID(c.Context(), linkID)
+	if err != nil {
+		if errors.Is(err, db.ErrLinkNotFound) {
+			return htmxError(c, "Link not found")
+		}
+		return err
+	}
+
+	if !canManageLink(user, link) {
+		return htmxError(c, "You do not have permission to edit this link")
+	}
+
+	newURL := c.FormValue("url")
+	newDescription := c.FormValue("description")
+	reason := c.FormValue("reason")
+
+	if newURL == "" {
+		return htmxError(c, "URL is required")
+	}
+	if reason == "" {
+		return htmxError(c, "A reason is required for edit requests")
+	}
+	if valid, msg := validation.ValidateURL(newURL); !valid {
+		return htmxError(c, msg)
+	}
+
+	req := &models.LinkEditRequest{
+		LinkID:      linkID,
+		UserID:      user.ID,
+		URL:         newURL,
+		Description: newDescription,
+		Reason:      reason,
+	}
+
+	if err := h.db.CreateEditRequest(c.Context(), req); err != nil {
+		if errors.Is(err, db.ErrPendingRequestLimit) {
+			return htmxError(c, err.Error())
+		}
+		if errors.Is(err, db.ErrDuplicateEditRequest) {
+			return htmxError(c, "You already have a pending edit request for this link")
+		}
+		return err
+	}
+
+	orgNames, orgColors := h.buildOrgMaps(c.Context())
+
+	return c.Render("partials/manage_link_row", fiber.Map{
+		"Link":        link,
+		"User":        user,
+		"OrgNames":    orgNames,
+		"OrgColors":   orgColors,
+		"IsModerator": false,
+		"EditMessage": "Edit request submitted for review",
+	}, "")
+}
+
+// RequestDeletion creates a deletion request for a link (regular users).
+func (h *ManageHandler) RequestDeletion(c fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+
+	idStr := c.Params("id")
+	linkID, err := uuid.Parse(idStr)
+	if err != nil {
+		return htmxError(c, "Invalid link ID")
+	}
+
+	link, err := h.db.GetLinkByID(c.Context(), linkID)
+	if err != nil {
+		if errors.Is(err, db.ErrLinkNotFound) {
+			return htmxError(c, "Link not found")
+		}
+		return err
+	}
+
+	if !canManageLink(user, link) {
+		return htmxError(c, "You do not have permission to manage this link")
+	}
+
+	reason := c.FormValue("reason")
+	if reason == "" {
+		return htmxError(c, "A reason is required for deletion requests")
+	}
+
+	// Check pending request limit
+	count, err := h.db.CountPendingRequestsByUser(c.Context(), user.ID)
+	if err != nil {
+		return err
+	}
+	if count >= 5 {
+		return htmxError(c, db.ErrPendingRequestLimit.Error())
+	}
+
+	if err := h.db.RequestLinkDeletion(c.Context(), linkID, reason); err != nil {
+		if errors.Is(err, db.ErrLinkNotFound) {
+			return htmxError(c, "Link not found or not eligible for deletion request")
+		}
+		return err
+	}
+
+	// Re-fetch the link to get updated status
+	link, _ = h.db.GetLinkByID(c.Context(), linkID)
+
+	orgNames, orgColors := h.buildOrgMaps(c.Context())
+
+	return c.Render("partials/manage_link_row", fiber.Map{
+		"Link":        link,
+		"User":        user,
+		"OrgNames":    orgNames,
+		"OrgColors":   orgColors,
+		"IsModerator": false,
 	}, "")
 }
 
@@ -208,7 +340,14 @@ func canManageLink(user *models.User, link *models.Link) bool {
 
 	// Org mods can manage links for their org
 	if link.Scope == models.ScopeOrg && link.OrganizationID != nil {
-		return user.CanModerateOrg(*link.OrganizationID)
+		if user.CanModerateOrg(*link.OrganizationID) {
+			return true
+		}
+	}
+
+	// Users can manage links they authored
+	if link.CreatedBy != nil && *link.CreatedBy == user.ID {
+		return true
 	}
 
 	return false

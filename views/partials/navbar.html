@@ -17,8 +17,8 @@
                     <a href="/my-links" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/my-links">My Links</a>
                     {{if .User.IsOrgMod}}
                     <a href="/moderation" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/moderation">Moderation</a>
-                    <a href="/manage" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/manage">Manage</a>
                     {{end}}
+                    <a href="/manage" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/manage">Manage</a>
                     {{if .User.IsAdmin}}
                     <a href="/admin/users" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/admin/users">Users</a>
                     {{end}}
@@ -83,8 +83,8 @@
                 <a href="/my-links" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/my-links">My Links</a>
                 {{if .User.IsOrgMod}}
                 <a href="/moderation" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/moderation">Moderation</a>
-                <a href="/manage" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/manage">Manage</a>
                 {{end}}
+                <a href="/manage" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/manage">Manage</a>
                 {{if .User.IsAdmin}}
                 <a href="/admin/users" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/admin/users">Users</a>
                 {{end}}

@@ -14,9 +14,10 @@ const (
 
 // Link status constants
 const (
-	StatusPending  = "pending"
-	StatusApproved = "approved"
-	StatusRejected = "rejected"
+	StatusPending            = "pending"
+	StatusApproved           = "approved"
+	StatusRejected           = "rejected"
+	StatusDeletionRequested  = "deletion_requested"
 )
 
 // Health status constants
@@ -39,12 +40,17 @@ type Link struct {
 	SubmittedBy    *uuid.UUID `json:"submitted_by"`    // User who submitted for approval
 	ReviewedBy     *uuid.UUID `json:"reviewed_by"`     // Moderator who approved/rejected
 	ReviewedAt     *time.Time `json:"reviewed_at"`
+	Reason          string     `json:"reason"`
 	ClickCount      int64      `json:"click_count"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	HealthStatus    string     `json:"health_status"`
 	HealthCheckedAt *time.Time `json:"health_checked_at"`
 	HealthError     *string    `json:"health_error"`
+
+	// Non-DB fields, populated via JOIN for management queries
+	AuthorName  string `json:"author_name,omitempty"`
+	AuthorEmail string `json:"author_email,omitempty"`
 }
 
 // IsPending returns true if the link is awaiting moderation.
@@ -55,6 +61,11 @@ func (l *Link) IsPending() bool {
 // IsApproved returns true if the link is approved and active.
 func (l *Link) IsApproved() bool {
 	return l.Status == StatusApproved
+}
+
+// IsDeletionRequested returns true if the link has a pending deletion request.
+func (l *Link) IsDeletionRequested() bool {
+	return l.Status == StatusDeletionRequested
 }
 
 // IsHealthy returns true if the link has a healthy status.

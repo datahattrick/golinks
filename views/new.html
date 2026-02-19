@@ -44,6 +44,16 @@
                 class="w-full px-4 py-3 rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
         </div>
 
+        <div id="reason-field" class="hidden">
+            <label for="reason" class="block text-sm font-medium mb-2">Reason <span class="text-gray-700 font-normal">(why this link should be added)</span></label>
+            <textarea
+                id="reason"
+                name="reason"
+                placeholder="Brief reason for this link..."
+                rows="2"
+                class="w-full px-4 py-3 rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"></textarea>
+        </div>
+
         {{if or .EnablePersonalLinks .EnableOrgLinks}}
         <div>
             <label class="block text-sm font-medium mb-3">Link Scope</label>
@@ -116,6 +126,13 @@ document.querySelectorAll('.scope-radio').forEach(radio => {
         const orgSelect = document.getElementById('org-select');
         if (orgSelect) {
             orgSelect.classList.toggle('hidden', radio.value !== 'org');
+        }
+
+        // Show reason field when submission requires approval
+        const reasonField = document.getElementById('reason-field');
+        if (reasonField) {
+            const needsApproval = radio.dataset.btn.startsWith('Submit');
+            reasonField.classList.toggle('hidden', !needsApproval);
         }
     });
 });

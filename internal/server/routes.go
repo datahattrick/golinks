@@ -59,6 +59,8 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Get("/new", authMiddleware.RequireAuth, linkHandler.New)
 	s.App.Get("/links/check", authMiddleware.RequireAuth, linkHandler.CheckKeyword)
 	s.App.Post("/links", authMiddleware.RequireAuth, linkHandler.Create)
+	s.App.Get("/links/:id/suggest-edit", authMiddleware.RequireAuth, linkHandler.SuggestEdit)
+	s.App.Post("/links/:id/suggest-edit", authMiddleware.RequireAuth, linkHandler.SubmitSuggestEdit)
 	s.App.Delete("/links/:id", authMiddleware.RequireAuth, linkHandler.Delete)
 	s.App.Get("/profile", authMiddleware.RequireAuth, profileHandler.Show)
 
@@ -80,15 +82,21 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 		s.App.Delete("/my-links/:id", authMiddleware.RequireAuth, userLinkHandler.Delete)
 	}
 
-	// Moderation routes (moderators only)
+	// Moderation routes (moderators only — role checks in handlers)
 	s.App.Get("/moderation", authMiddleware.RequireAuth, moderationHandler.Index)
 	s.App.Post("/moderation/:id/approve", authMiddleware.RequireAuth, moderationHandler.Approve)
 	s.App.Post("/moderation/:id/reject", authMiddleware.RequireAuth, moderationHandler.Reject)
+	s.App.Post("/moderation/:id/approve-deletion", authMiddleware.RequireAuth, moderationHandler.ApproveDeletion)
+	s.App.Post("/moderation/:id/reject-deletion", authMiddleware.RequireAuth, moderationHandler.RejectDeletion)
+	s.App.Post("/moderation/edit/:id/approve", authMiddleware.RequireAuth, moderationHandler.ApproveEdit)
+	s.App.Post("/moderation/edit/:id/reject", authMiddleware.RequireAuth, moderationHandler.RejectEdit)
 
-	// Management routes (moderators only)
+	// Management routes (all authenticated users — role checks in handlers)
 	s.App.Get("/manage", authMiddleware.RequireAuth, manageHandler.Index)
 	s.App.Get("/manage/:id/edit", authMiddleware.RequireAuth, manageHandler.Edit)
 	s.App.Put("/manage/:id", authMiddleware.RequireAuth, manageHandler.Update)
+	s.App.Post("/manage/:id/edit-request", authMiddleware.RequireAuth, manageHandler.RequestEdit)
+	s.App.Post("/manage/:id/request-deletion", authMiddleware.RequireAuth, manageHandler.RequestDeletion)
 	s.App.Post("/health/:id", authMiddleware.RequireAuth, healthHandler.CheckLink)
 
 	// Admin routes (admin only)
