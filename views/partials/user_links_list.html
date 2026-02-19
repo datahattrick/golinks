@@ -24,8 +24,7 @@
             {{end}}
             <p class="text-sm text-gray-600 dark:text-gray-500 mt-2 truncate">{{.URL}}</p>
         </div>
-        <div class="flex items-center gap-4 ml-4 flex-shrink-0">
-            <span class="text-sm font-mono text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
+        <div class="flex items-center gap-2 ml-4 flex-shrink-0">
             <button
                 type="button"
                 onclick="prefillShare('{{.Keyword}}', '{{.URL}}', '{{.Description}}')"
@@ -51,6 +50,7 @@
                 hx-confirm="Remove this personal link?">
                 Remove
             </button>
+            <span class="text-sm font-mono text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
         </div>
     </div>
 </div>
