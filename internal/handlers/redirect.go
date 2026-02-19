@@ -10,6 +10,7 @@ import (
 
 	"golinks/internal/config"
 	"golinks/internal/db"
+	"golinks/internal/metrics"
 	"golinks/internal/models"
 	"golinks/internal/validation"
 )
@@ -41,9 +42,11 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 				"error":  "invalid keyword",
 			})
 		}
+		user, _ := c.Locals("user").(*models.User)
 		return c.Status(fiber.StatusBadRequest).Render("error", MergeBranding(fiber.Map{
 			"Title":   "Invalid Keyword",
 			"Message": "The keyword contains invalid characters.",
+			"User":    user,
 		}, h.cfg))
 	}
 
@@ -59,27 +62,39 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	if err != nil {
 		if errors.Is(err, db.ErrLinkNotFound) {
 			if wantsJSON {
+				metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
 				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 					"status": "error",
 					"error":  "keyword not found",
 				})
 			}
-			// Check for organization fallback URL (browser only)
-			if user != nil && user.OrganizationID != nil {
-				org, orgErr := h.db.GetOrganizationByID(c.Context(), *user.OrganizationID)
-				if orgErr == nil && org.FallbackRedirectURL != nil && *org.FallbackRedirectURL != "" {
-					return c.Redirect().To(*org.FallbackRedirectURL + keyword)
+			// Check for user's fallback redirect preference (browser only)
+			if user != nil && user.FallbackRedirectID != nil {
+				fb, fbErr := h.db.GetFallbackRedirectByID(c.Context(), *user.FallbackRedirectID)
+				if fbErr == nil {
+					metrics.RecordKeywordLookup(keyword, models.OutcomeFallback)
+					return c.Redirect().To(fb.URL + keyword)
 				}
 			}
-			return c.Status(fiber.StatusNotFound).Render("error", MergeBranding(fiber.Map{
-				"Title":   "Not Found",
-				"Message": "The link '" + keyword + "' does not exist.",
+			metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
+			// Look up similar keywords for "did you mean?" suggestions
+			var orgID *uuid.UUID
+			if user != nil && user.OrganizationID != nil {
+				orgID = user.OrganizationID
+			}
+			suggestions, _ := h.db.GetSimilarKeywords(c.Context(), keyword, orgID, 5)
+			return c.Status(fiber.StatusNotFound).Render("not_found", MergeBranding(fiber.Map{
+				"Title":       "Not Found",
+				"Keyword":     keyword,
+				"Suggestions": suggestions,
+				"User":        user,
 			}, h.cfg))
 		}
 		return err
 	}
 
-	// Increment click count asynchronously
+	// Record successful resolution and increment click count asynchronously
+	metrics.RecordKeywordLookup(keyword, models.OutcomeResolved)
 	go h.db.IncrementResolvedLinkClickCount(context.Background(), resolved, userID)
 
 	// Return JSON for API clients
@@ -117,6 +132,7 @@ func (h *RedirectHandler) Random(c fiber.Ctx) error {
 			return c.Status(fiber.StatusNotFound).Render("error", MergeBranding(fiber.Map{
 				"Title":   "No Links",
 				"Message": "There are no links available.",
+				"User":    user,
 			}, h.cfg))
 		}
 		return err

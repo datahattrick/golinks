@@ -927,6 +927,42 @@ func (d *DB) GetRandomApprovedLink(ctx context.Context, orgID *uuid.UUID) (*mode
 	return &links[0], nil
 }
 
+// GetSimilarKeywords returns approved links with keywords similar to the input,
+// ranked by trigram similarity. Uses the pg_trgm extension.
+func (d *DB) GetSimilarKeywords(ctx context.Context, keyword string, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	var sql string
+	var args []any
+
+	if orgID != nil {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1
+				AND (scope = $2 OR (scope = $3 AND organization_id = $4))
+				AND similarity(keyword, $5) > 0.15
+			ORDER BY similarity(keyword, $5) DESC
+			LIMIT $6
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, keyword, limit}
+	} else {
+		sql = `
+			SELECT ` + linkColumns + `
+			FROM links
+			WHERE status = $1 AND scope = $2
+				AND similarity(keyword, $3) > 0.15
+			ORDER BY similarity(keyword, $3) DESC
+			LIMIT $4
+		`
+		args = []any{models.StatusApproved, models.ScopeGlobal, keyword, limit}
+	}
+
+	rows, err := d.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
 // GetLinksNeedingHealthCheck retrieves links that need a health check.
 func (d *DB) GetLinksNeedingHealthCheck(ctx context.Context, maxAge time.Duration, limit int) ([]models.Link, error) {
 	cutoff := time.Now().Add(-maxAge)

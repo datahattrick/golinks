@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
@@ -20,8 +21,10 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/static"
 	pgstore "github.com/gofiber/storage/postgres/v3"
 	"github.com/gofiber/template/html/v3"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"golinks/internal/config"
+	"golinks/internal/models"
 )
 
 // Server wraps the Fiber app and configuration.
@@ -68,9 +71,11 @@ func New(cfg *config.Config) *Server {
 			}
 
 			// Render HTML error page; fall back to plain text if template fails
+			user, _ := c.Locals("user").(*models.User)
 			renderErr := c.Status(code).Render("error", fiber.Map{
 				"Title":                    "Error",
 				"Message":                  message,
+				"User":                     user,
 				"SiteTitle":                cfg.SiteTitle,
 				"SiteTagline":              cfg.SiteTagline,
 				"SiteFooter":               cfg.SiteFooter,
@@ -119,6 +124,9 @@ func New(cfg *config.Config) *Server {
 	app.Get("/static/*", static.New("./static", static.Config{
 		MaxAge: 3600,
 	}))
+
+	// Prometheus metrics endpoint - no auth, before session middleware
+	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 
 	slog.Debug("static file middleware registered", "root", "./static")
 

@@ -1,0 +1,37 @@
+<div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
+    <h1 class="text-4xl font-bold mb-2">Not Found</h1>
+    <p class="text-gray-700 dark:text-gray-400 mb-8">The link <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span> does not exist.</p>
+
+    {{if .Suggestions}}
+    <div class="w-full max-w-lg mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Did you mean?</h2>
+        <div class="space-y-2">
+            {{range .Suggestions}}
+            <a href="/go/{{.Keyword}}" class="glass-card rounded-xl p-4 hover:shadow-lg hover:shadow-brand-500/10 transition-all block text-left">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                        <span class="font-mono font-semibold text-brand-600 dark:text-brand-400 text-lg">{{.Keyword}}</span>
+                        {{if .Description}}
+                        <p class="text-gray-800 dark:text-gray-300 mt-1 text-sm">{{.Description}}</p>
+                        {{end}}
+                        <p class="text-sm text-gray-700 dark:text-gray-500 mt-1 truncate">{{.URL}}</p>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500 ml-3 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+            </a>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
+    <div class="flex items-center gap-4">
+        <a href="/browse?q={{.Keyword}}" class="px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-all shadow-md hover:shadow-lg" style="background: linear-gradient(to right, #06b6d4, #14b8a6);">
+            Browse All Links
+        </a>
+        <a href="/" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            Go Home
+        </a>
+    </div>
+</div>
