@@ -149,19 +149,19 @@ For multi-instance deployments (Kubernetes, etc.), set `SESSION_STORE=postgres` 
 SESSION_STORE=postgres
 ```
 
-## Organization Fallbacks
+## Redirect Fallbacks
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ORG_FALLBACKS` | Per-org fallback redirect URLs | (none) |
+| `REDIRECT_FALLBACKS` | Per-org fallback redirect URL seeds | (none) |
 
 Format: `org_slug=fallback_url,org2_slug=fallback_url2`
 
 ```bash
-ORG_FALLBACKS=acme=https://other-golinks.acme.com/go/,corp=https://corp-links.example.com/go/
+REDIRECT_FALLBACKS=acme=https://other-golinks.acme.com/go/,corp=https://corp-links.example.com/go/
 ```
 
-When a keyword is not found, users in the specified org are redirected to the fallback URL with the keyword appended.
+This seeds named fallback redirect options into the database for each organization. Admins can also manage fallback options via the `/admin/fallback-redirects` page. Users choose a fallback in their profile; the default is none (show 404 page).
 
 ## TLS / mTLS
 

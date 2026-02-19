@@ -1,0 +1,21 @@
+<div class="flex items-center gap-3 px-4 py-3 group" id="fallback-row-{{.ID}}">
+    <div class="flex-1 min-w-0">
+        <div class="font-medium text-gray-900 dark:text-white text-sm">{{.Name}}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{.URL}}</div>
+    </div>
+    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+            onclick="editFallback('{{.ID}}', '{{.Name}}', '{{.URL}}')"
+            class="text-xs px-2.5 py-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors font-medium">
+            Edit
+        </button>
+        <button
+            hx-delete="/admin/fallback-redirects/{{.ID}}"
+            hx-target="#org-fallbacks-{{.OrganizationID}}"
+            hx-swap="outerHTML"
+            hx-confirm="Delete this fallback redirect? Users who selected it will revert to 'None'."
+            class="text-xs px-2.5 py-1 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors font-medium">
+            Delete
+        </button>
+    </div>
+</div>

@@ -9,11 +9,15 @@ import (
 	"golinks/internal/email"
 	"golinks/internal/handlers"
 	"golinks/internal/handlers/api"
+	"golinks/internal/metrics"
 	"golinks/internal/middleware"
 )
 
 // RegisterRoutes registers all application routes.
 func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
+	// Initialize Prometheus metrics collector
+	metrics.Init(database)
+
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(database, s.Cfg)
 
@@ -63,6 +67,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Post("/links/:id/suggest-edit", authMiddleware.RequireAuth, linkHandler.SubmitSuggestEdit)
 	s.App.Delete("/links/:id", authMiddleware.RequireAuth, linkHandler.Delete)
 	s.App.Get("/profile", authMiddleware.RequireAuth, profileHandler.Show)
+	s.App.Patch("/profile/fallback", authMiddleware.RequireAuth, profileHandler.UpdateFallbackPreference)
 
 	// User link override routes (only if personal links enabled)
 	if s.Cfg.EnablePersonalLinks {
@@ -104,6 +109,13 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Post("/admin/users/:id/role", authMiddleware.RequireAuth, userHandler.UpdateUserRole)
 	s.App.Post("/admin/users/:id/org", authMiddleware.RequireAuth, userHandler.UpdateUserOrg)
 	s.App.Delete("/admin/users/:id", authMiddleware.RequireAuth, userHandler.DeleteUser)
+
+	// Admin fallback redirect management
+	fallbackHandler := handlers.NewFallbackRedirectHandler(database, s.Cfg)
+	s.App.Get("/admin/fallback-redirects", authMiddleware.RequireAuth, fallbackHandler.List)
+	s.App.Post("/admin/fallback-redirects", authMiddleware.RequireAuth, fallbackHandler.Create)
+	s.App.Put("/admin/fallback-redirects/:id", authMiddleware.RequireAuth, fallbackHandler.Update)
+	s.App.Delete("/admin/fallback-redirects/:id", authMiddleware.RequireAuth, fallbackHandler.Delete)
 
 	// Random link route ("I'm Feeling Lucky")
 	s.App.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)

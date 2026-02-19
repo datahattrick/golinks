@@ -15,11 +15,11 @@ var ErrOrgNotFound = errors.New("organization not found")
 // CreateOrganization creates a new organization.
 func (d *DB) CreateOrganization(ctx context.Context, org *models.Organization) error {
 	query := `
-		INSERT INTO organizations (name, slug, fallback_redirect_url)
-		VALUES ($1, $2, $3)
+		INSERT INTO organizations (name, slug)
+		VALUES ($1, $2)
 		RETURNING id, created_at, updated_at
 	`
-	return d.Pool.QueryRow(ctx, query, org.Name, org.Slug, org.FallbackRedirectURL).Scan(
+	return d.Pool.QueryRow(ctx, query, org.Name, org.Slug).Scan(
 		&org.ID, &org.CreatedAt, &org.UpdatedAt,
 	)
 }
@@ -27,13 +27,13 @@ func (d *DB) CreateOrganization(ctx context.Context, org *models.Organization) e
 // GetOrganizationByID retrieves an organization by ID.
 func (d *DB) GetOrganizationByID(ctx context.Context, id uuid.UUID) (*models.Organization, error) {
 	query := `
-		SELECT id, name, slug, fallback_redirect_url, created_at, updated_at
+		SELECT id, name, slug, created_at, updated_at
 		FROM organizations WHERE id = $1
 	`
 
 	var org models.Organization
 	err := d.Pool.QueryRow(ctx, query, id).Scan(
-		&org.ID, &org.Name, &org.Slug, &org.FallbackRedirectURL, &org.CreatedAt, &org.UpdatedAt,
+		&org.ID, &org.Name, &org.Slug, &org.CreatedAt, &org.UpdatedAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -49,13 +49,13 @@ func (d *DB) GetOrganizationByID(ctx context.Context, id uuid.UUID) (*models.Org
 // GetOrganizationBySlug retrieves an organization by its slug.
 func (d *DB) GetOrganizationBySlug(ctx context.Context, slug string) (*models.Organization, error) {
 	query := `
-		SELECT id, name, slug, fallback_redirect_url, created_at, updated_at
+		SELECT id, name, slug, created_at, updated_at
 		FROM organizations WHERE slug = $1
 	`
 
 	var org models.Organization
 	err := d.Pool.QueryRow(ctx, query, slug).Scan(
-		&org.ID, &org.Name, &org.Slug, &org.FallbackRedirectURL, &org.CreatedAt, &org.UpdatedAt,
+		&org.ID, &org.Name, &org.Slug, &org.CreatedAt, &org.UpdatedAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -71,7 +71,7 @@ func (d *DB) GetOrganizationBySlug(ctx context.Context, slug string) (*models.Or
 // GetAllOrganizations retrieves all organizations.
 func (d *DB) GetAllOrganizations(ctx context.Context) ([]models.Organization, error) {
 	query := `
-		SELECT id, name, slug, fallback_redirect_url, created_at, updated_at
+		SELECT id, name, slug, created_at, updated_at
 		FROM organizations ORDER BY name ASC
 	`
 
@@ -84,7 +84,7 @@ func (d *DB) GetAllOrganizations(ctx context.Context) ([]models.Organization, er
 	var orgs []models.Organization
 	for rows.Next() {
 		var org models.Organization
-		if err := rows.Scan(&org.ID, &org.Name, &org.Slug, &org.FallbackRedirectURL, &org.CreatedAt, &org.UpdatedAt); err != nil {
+		if err := rows.Scan(&org.ID, &org.Name, &org.Slug, &org.CreatedAt, &org.UpdatedAt); err != nil {
 			return nil, err
 		}
 		orgs = append(orgs, org)
@@ -118,29 +118,4 @@ func (d *DB) GetOrCreateOrganization(ctx context.Context, slug string) (*models.
 		return nil, false, err
 	}
 	return org, true, nil
-}
-
-// SyncOrgFallbackURLs syncs the fallback URLs from config to the database.
-// For each configured fallback, it creates the org if needed and sets the fallback URL.
-func (d *DB) SyncOrgFallbackURLs(ctx context.Context, fallbacks map[string]string) error {
-	if len(fallbacks) == 0 {
-		return nil
-	}
-
-	query := `
-		INSERT INTO organizations (name, slug, fallback_redirect_url)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (slug) DO UPDATE SET
-			fallback_redirect_url = EXCLUDED.fallback_redirect_url,
-			updated_at = NOW()
-	`
-
-	for slug, fallbackURL := range fallbacks {
-		_, err := d.Pool.Exec(ctx, query, slug, slug, fallbackURL)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

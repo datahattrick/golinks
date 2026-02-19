@@ -55,12 +55,12 @@ func main() {
 	}
 	slog.Info("migrations completed successfully")
 
-	// Sync organization fallback URLs from config
-	if len(cfg.OrgFallbacks) > 0 {
-		if err := database.SyncOrgFallbackURLs(ctx, cfg.OrgFallbacks); err != nil {
-			slog.Warn("failed to sync org fallback URLs", "error", err)
+	// Sync fallback redirect options from config
+	if len(cfg.RedirectFallbacks) > 0 {
+		if err := database.SyncFallbackRedirects(ctx, cfg.RedirectFallbacks); err != nil {
+			slog.Warn("failed to sync fallback redirects", "error", err)
 		} else {
-			slog.Info("synced organization fallback URLs", "count", len(cfg.OrgFallbacks))
+			slog.Info("synced fallback redirects", "count", len(cfg.RedirectFallbacks))
 		}
 	}
 

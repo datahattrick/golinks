@@ -25,6 +25,10 @@
         </div>
     </div>
 
+    {{if .FallbackOptions}}
+    {{template "partials/fallback_preference" .}}
+    {{end}}
+
     <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
         Your Links
         {{if .Links}}

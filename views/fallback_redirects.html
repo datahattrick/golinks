@@ -1,0 +1,36 @@
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Fallback Redirects</h1>
+        <p class="text-gray-800 dark:text-gray-400 mt-1">Manage fallback redirect options per organization. Users can choose a fallback in their profile.</p>
+    </div>
+
+    <!-- Create New Fallback -->
+    <div class="glass-card rounded-xl p-6 mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Fallback Redirect</h2>
+        <form hx-post="/admin/fallback-redirects" hx-target="#fallback-lists" hx-swap="innerHTML" class="flex flex-col sm:flex-row gap-3">
+            <select name="organization_id" required
+                class="appearance-none text-sm pl-3 pr-8 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-colors"
+                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%236b7280%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;">
+                <option value="">Select Organization</option>
+                {{range .Orgs}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+            <input type="text" name="name" placeholder="Name (e.g. Corporate GoLinks)" required
+                class="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-colors">
+            <input type="url" name="url" placeholder="URL prefix (e.g. https://go.corp.com/)" required
+                class="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-colors">
+            <button type="submit"
+                class="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all shadow-sm shadow-brand-500/25 whitespace-nowrap">
+                Add
+            </button>
+        </form>
+    </div>
+
+    <!-- Fallback Lists by Org -->
+    <div id="fallback-lists">
+        {{range .OrgWithFallbacks}}
+        {{template "partials/fallback_redirect_list" .}}
+        {{end}}
+    </div>
+</div>

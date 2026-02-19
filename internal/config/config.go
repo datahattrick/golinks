@@ -51,8 +51,8 @@ type Config struct {
 	EnablePersonalLinks  bool // Enable personal link scopes (requires auth)
 	EnableOrgLinks       bool // Enable organization link scopes (requires auth)
 
-	// Organizations
-	OrgFallbacks map[string]string // Map of org slug to fallback redirect URL, e.g. {"org1": "https://other.com/go/"}
+	// Fallback Redirects
+	RedirectFallbacks map[string]string // Map of org slug to fallback redirect URL, e.g. {"org1": "https://other.com/go/"}
 
 	// Site Branding
 	SiteTitle             string // env: SITE_TITLE, default: "GoLinks"
@@ -113,7 +113,7 @@ func Load() *Config {
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
 		EnablePersonalLinks:  getEnv("ENABLE_PERSONAL_LINKS", "true") != "false",
 		EnableOrgLinks:       getEnv("ENABLE_ORG_LINKS", "true") != "false",
-		OrgFallbacks:         parseOrgFallbacks(getEnv("ORG_FALLBACKS", "")),
+		RedirectFallbacks:    parseRedirectFallbacks(getEnv("REDIRECT_FALLBACKS", "")),
 
 		SiteTitle:   getEnv("SITE_TITLE", "GoLinks"),
 		SiteTagline: getEnv("SITE_TAGLINE", "Fast URL shortcuts for your team"),
@@ -232,8 +232,8 @@ func (c *Config) Validate() {
 	}
 }
 
-// parseOrgFallbacks parses ORG_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
-func parseOrgFallbacks(val string) map[string]string {
+// parseRedirectFallbacks parses REDIRECT_FALLBACKS env var format: "org1=https://url1/go/,org2=https://url2/"
+func parseRedirectFallbacks(val string) map[string]string {
 	result := make(map[string]string)
 	if val == "" {
 		return result

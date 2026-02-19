@@ -53,9 +53,9 @@ OIDC_MODERATOR_GROUPS=golinks-moderator
 
 Organizations are automatically created when:
 - A user authenticates with a new organization claim (controlled by `OIDC_ORG_CLAIM`)
-- Fallback URLs are configured via `ORG_FALLBACKS`
+- Fallback redirects are configured via `REDIRECT_FALLBACKS`
 
 Organizations support:
-- **Fallback redirect URL** — when a keyword isn't found, redirect to another GoLinks instance
+- **Fallback redirects** — admins manage named fallback options per org at `/admin/fallback-redirects`; users choose one in their profile (default: none). When a keyword isn't found, users with a fallback selected are redirected to that URL with the keyword appended.
 - **Per-org colored badges** on the manage page for quick visual identification
 - **Moderator scoping** — org mods only see and manage links within their organization

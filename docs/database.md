@@ -16,6 +16,7 @@ GoLinks uses PostgreSQL with the `pg_trgm` extension for fuzzy search. Migration
 | `picture` | TEXT | Profile picture URL |
 | `role` | TEXT | User role (`user`, `org_mod`, `global_mod`, `admin`) |
 | `organization_id` | UUID | FK → organizations |
+| `fallback_redirect_id` | UUID | FK → fallback_redirects (user's chosen fallback, nullable) |
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
 | `updated_at` | TIMESTAMPTZ | Last update |
 
@@ -26,9 +27,21 @@ GoLinks uses PostgreSQL with the `pg_trgm` extension for fuzzy search. Migration
 | `id` | UUID | Primary key |
 | `name` | TEXT | Organization name |
 | `slug` | TEXT | URL-friendly identifier |
-| `fallback_redirect_url` | TEXT | Fallback URL for missing keywords |
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
 | `updated_at` | TIMESTAMPTZ | Last update |
+
+### `fallback_redirects`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `organization_id` | UUID | FK to organizations |
+| `name` | TEXT | Display name for this option |
+| `url` | TEXT | URL prefix (keyword is appended) |
+| `created_at` | TIMESTAMPTZ | Creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Last update |
+
+Unique constraint on `(organization_id, name)`. Users reference a fallback via `users.fallback_redirect_id` (nullable, ON DELETE SET NULL).
 
 ### `links`
 

@@ -23,7 +23,7 @@ func (d *DB) UpsertUser(ctx context.Context, user *models.User) error {
 			name = EXCLUDED.name,
 			picture = EXCLUDED.picture,
 			updated_at = NOW()
-		RETURNING id, role, organization_id, created_at, updated_at
+		RETURNING id, role, organization_id, fallback_redirect_id, created_at, updated_at
 	`
 
 	return d.Pool.QueryRow(ctx, query,
@@ -34,7 +34,7 @@ func (d *DB) UpsertUser(ctx context.Context, user *models.User) error {
 		user.Picture,
 		nullIfEmpty(user.Role),
 		user.OrganizationID,
-	).Scan(&user.ID, &user.Role, &user.OrganizationID, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Role, &user.OrganizationID, &user.FallbackRedirectID, &user.CreatedAt, &user.UpdatedAt)
 }
 
 func nullIfEmpty(s string) any {
@@ -47,7 +47,7 @@ func nullIfEmpty(s string) any {
 // GetUserBySub retrieves a user by their OIDC subject identifier.
 func (d *DB) GetUserBySub(ctx context.Context, sub string) (*models.User, error) {
 	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, created_at, updated_at
+		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
 		FROM users WHERE sub = $1
 	`
 
@@ -61,6 +61,7 @@ func (d *DB) GetUserBySub(ctx context.Context, sub string) (*models.User, error)
 		&user.Picture,
 		&user.Role,
 		&user.OrganizationID,
+		&user.FallbackRedirectID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -78,7 +79,7 @@ func (d *DB) GetUserBySub(ctx context.Context, sub string) (*models.User, error)
 // GetUserByUsername retrieves a user by their PKI username.
 func (d *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, created_at, updated_at
+		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
 		FROM users WHERE username = $1
 	`
 
@@ -92,6 +93,7 @@ func (d *DB) GetUserByUsername(ctx context.Context, username string) (*models.Us
 		&user.Picture,
 		&user.Role,
 		&user.OrganizationID,
+		&user.FallbackRedirectID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -109,7 +111,7 @@ func (d *DB) GetUserByUsername(ctx context.Context, username string) (*models.Us
 // GetUserByID retrieves a user by their UUID.
 func (d *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, created_at, updated_at
+		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 
@@ -123,6 +125,7 @@ func (d *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error
 		&user.Picture,
 		&user.Role,
 		&user.OrganizationID,
+		&user.FallbackRedirectID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -191,7 +194,7 @@ type UserWithOrg struct {
 func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 	query := `
 		SELECT u.id, u.sub, COALESCE(u.username, ''), u.email, u.name, u.picture,
-			   u.role, u.organization_id, u.created_at, u.updated_at,
+			   u.role, u.organization_id, u.fallback_redirect_id, u.created_at, u.updated_at,
 			   COALESCE(o.name, ''), COALESCE(o.slug, '')
 		FROM users u
 		LEFT JOIN organizations o ON u.organization_id = o.id
@@ -209,7 +212,7 @@ func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 		var u UserWithOrg
 		if err := rows.Scan(
 			&u.ID, &u.Sub, &u.Username, &u.Email, &u.Name, &u.Picture,
-			&u.Role, &u.OrganizationID, &u.CreatedAt, &u.UpdatedAt,
+			&u.Role, &u.OrganizationID, &u.FallbackRedirectID, &u.CreatedAt, &u.UpdatedAt,
 			&u.OrganizationName, &u.OrganizationSlug,
 		); err != nil {
 			return nil, err
