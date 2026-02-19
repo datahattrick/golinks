@@ -33,6 +33,7 @@ These routes serve the web UI. Partial responses are returned for HTMX requests 
 | `DELETE` | `/my-links/share/:id` | Required | Decline a shared link |
 | `DELETE` | `/my-links/share/:id/withdraw` | Required | Withdraw an outgoing share |
 | `GET` | `/profile` | Required | User profile page |
+| `PATCH` | `/profile/fallback` | Required | Update fallback redirect preference |
 | `GET` | `/moderation` | Mod+ | Moderation queue |
 | `POST` | `/moderation/:id/approve` | Mod+ | Approve pending link |
 | `POST` | `/moderation/:id/reject` | Mod+ | Reject pending link |
@@ -44,6 +45,10 @@ These routes serve the web UI. Partial responses are returned for HTMX requests 
 | `POST` | `/admin/users/:id/role` | Admin | Update user role |
 | `POST` | `/admin/users/:id/org` | Admin | Update user org |
 | `DELETE` | `/admin/users/:id` | Admin | Delete user |
+| `GET` | `/admin/fallback-redirects` | Admin | Manage fallback redirects |
+| `POST` | `/admin/fallback-redirects` | Admin | Create fallback redirect |
+| `PUT` | `/admin/fallback-redirects/:id` | Admin | Update fallback redirect |
+| `DELETE` | `/admin/fallback-redirects/:id` | Admin | Delete fallback redirect |
 | `GET` | `/random` | Required | Redirect to a random link |
 | `GET` | `/go/:keyword` | See note | Redirect to URL |
 | `GET` | `/auth/login` | None | Initiate OIDC login |

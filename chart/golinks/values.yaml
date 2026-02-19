@@ -245,6 +245,12 @@ config:
     # -- Enable organization link scopes
     orgLinks: true
 
+  # -- Per-org fallback redirect URL seeds (format: "org_slug=url,org2_slug=url2")
+  # Seeds fallback redirect options into the database per organization on startup.
+  # Users choose a fallback in their profile; default is none (show 404 page).
+  # Admins can also manage fallback options via /admin/fallback-redirects.
+  redirectFallbacks: ""
+
   # -- Session storage backend ("memory" or "postgres")
   # Use "postgres" for multi-replica deployments to share sessions across pods
   sessionStore: "memory"

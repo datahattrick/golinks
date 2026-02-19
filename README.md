@@ -12,7 +12,10 @@ A self-hosted URL shortener for teams. Create memorable short links like `docs` 
 - URL health monitoring with email alerts
 - Click tracking with 24-hour sparkline graphs
 - Personal link sharing with accept/decline workflow and anti-spam limits
-- Per-org fallback redirects and tier-based group resolution
+- Per-user fallback redirects with admin-managed options per org
+- "Did you mean?" fuzzy suggestions on keyword not found
+- Prometheus metrics for keyword lookup outcomes
+- Tier-based group resolution
 - Configurable site banner with custom text and colors
 - Structured logging with configurable log levels
 - PostgreSQL-backed session store for multi-pod deployments

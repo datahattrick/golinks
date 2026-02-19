@@ -11,9 +11,11 @@ golinks/
 │   │   └── config.go        # Configuration struct and loader
 │   ├── db/                  # Database layer (pgx v5 pool)
 │   │   ├── db.go            # Connection pool + migration runner
-│   │   ├── links.go         # Link CRUD operations
+│   │   ├── links.go         # Link CRUD + GetSimilarKeywords (pg_trgm)
 │   │   ├── users.go         # User CRUD operations
 │   │   ├── organizations.go # Organization operations
+│   │   ├── fallback_redirects.go # Fallback redirect CRUD per org
+│   │   ├── keyword_lookups.go # Keyword lookup outcome tracking
 │   │   └── groups.go        # Group/tier operations
 │   ├── handlers/            # HTTP handlers (HTMX UI)
 │   │   ├── auth.go          # OIDC flow (login/callback/logout)
@@ -23,7 +25,8 @@ golinks/
 │   │   ├── health.go        # URL health-check trigger
 │   │   ├── user_links.go    # Personal link CRUD
 │   │   ├── users.go         # User management (admin)
-│   │   ├── profile.go       # User profile page
+│   │   ├── fallback_redirects.go # Admin fallback redirect management
+│   │   ├── profile.go       # User profile page + fallback preference
 │   │   ├── probe.go         # Kubernetes liveness/readiness probes
 │   │   ├── branding.go      # Site-branding helpers
 │   │   ├── handlers.go      # Shared handler utilities
@@ -35,6 +38,7 @@ golinks/
 │   │       ├── moderation.go# Approve/reject (JSON)
 │   │       ├── health.go    # Health check (JSON)
 │   │       └── response.go  # JSON response helpers
+│   ├── metrics/             # Prometheus metrics (keyword lookup collector)
 │   ├── email/               # Email notifications
 │   │   ├── email.go         # SMTP service
 │   │   ├── templates.go     # Email templates
@@ -45,6 +49,8 @@ golinks/
 │   │   ├── user.go          # User model with role helpers
 │   │   ├── link.go          # Link model with status helpers
 │   │   ├── organization.go  # Organization model
+│   │   ├── fallback_redirect.go # Fallback redirect model
+│   │   ├── keyword_lookup.go # Keyword lookup outcome model
 │   │   └── group.go         # Group model for tiers
 │   └── server/              # Server and API configuration
 │       ├── server.go        # Fiber app setup, middleware, TLS config

@@ -69,6 +69,22 @@ As the sender, you can **Withdraw** any pending outgoing share.
 | Self-sharing | Blocked |
 | Duplicate (same sender + recipient + keyword) | Blocked |
 
+## "Did You Mean?" Suggestions
+
+When navigating to a keyword that doesn't exist, GoLinks shows a "Not Found" page with:
+
+- **Fuzzy suggestions** — similar keywords ranked by trigram similarity (using the `pg_trgm` extension), displayed as clickable cards
+- **Browse link** — links to `/browse?q=<keyword>` with the attempted keyword pre-filled in the filter
+- **Go Home link**
+
+If the user has a fallback redirect configured (see below), they are redirected to the fallback URL instead of seeing the not-found page.
+
+## Fallback Redirects
+
+Admins can configure named fallback redirect options per organization at `/admin/fallback-redirects`. Users choose a fallback in their profile page. When a keyword is not found, users with a fallback selected are redirected to that URL with the keyword appended (e.g., `https://other-golinks.example.com/go/<keyword>`).
+
+Fallback options can also be seeded from the `REDIRECT_FALLBACKS` environment variable on startup.
+
 ## Click Tracking
 
 Every redirect increments the link's click count. The home page displays the top-used links with 24-hour sparkline graphs showing hourly click activity.
