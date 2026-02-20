@@ -10,8 +10,7 @@ import (
 type ResolveResponse struct {
 	Keyword string `json:"keyword"`
 	URL     string `json:"url"`
-	Tier    int    `json:"tier"`
-	Source  string `json:"source"`
+	Source  string `json:"source"` // "personal", "org", "global"
 }
 
 // KeywordCheckResponse indicates whether a keyword is available.

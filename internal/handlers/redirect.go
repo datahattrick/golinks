@@ -27,8 +27,7 @@ func NewRedirectHandler(database *db.DB, cfg *config.Config) *RedirectHandler {
 }
 
 // Redirect looks up a keyword and redirects to the associated URL.
-// Uses tier-based resolution: personal (100) > group (1-99) > global (0)
-// At the same tier, user's primary group wins.
+// Resolution order: personal > org > global.
 // API clients (Accept: application/json) receive JSON instead of a redirect.
 func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	keyword := validation.NormalizeKeyword(c.Params("keyword"))
@@ -52,13 +51,14 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 
 	user, _ := c.Locals("user").(*models.User)
 
-	// Use tier-based resolution
 	var userID *uuid.UUID
+	var orgID *uuid.UUID
 	if user != nil {
 		userID = &user.ID
+		orgID = user.OrganizationID
 	}
 
-	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, keyword)
+	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, orgID, keyword)
 	if err != nil {
 		if errors.Is(err, db.ErrLinkNotFound) {
 			if wantsJSON {
@@ -78,10 +78,6 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 			}
 			metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
 			// Look up similar keywords for "did you mean?" suggestions
-			var orgID *uuid.UUID
-			if user != nil && user.OrganizationID != nil {
-				orgID = user.OrganizationID
-			}
 			suggestions, _ := h.db.GetSimilarKeywords(c.Context(), keyword, orgID, 5)
 			return c.Status(fiber.StatusNotFound).Render("not_found", MergeBranding(fiber.Map{
 				"Title":       "Not Found",
@@ -104,7 +100,6 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 			"data": fiber.Map{
 				"keyword": keyword,
 				"url":     resolved.URL,
-				"tier":    resolved.Tier,
 				"source":  resolved.Source,
 			},
 		})

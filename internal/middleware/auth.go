@@ -34,7 +34,6 @@ func NewAuthMiddleware(db *db.DB, cfg *config.Config) *AuthMiddleware {
 func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 	// Try PKI authentication first (mTLS or header)
 	if user, err := m.authenticateViaPKI(c); err == nil && user != nil {
-		m.loadGroupMemberships(c, user)
 		c.Locals("user", user)
 		return c.Next()
 	}
@@ -56,7 +55,6 @@ func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 		return m.redirectToLogin(c, nil)
 	}
 
-	m.loadGroupMemberships(c, user)
 	c.Locals("user", user)
 	return c.Next()
 }
@@ -134,7 +132,6 @@ func extractUsernameFromCN(cn string) string {
 func (m *AuthMiddleware) OptionalAuth(c fiber.Ctx) error {
 	// Try PKI authentication first
 	if user, err := m.authenticateViaPKI(c); err == nil && user != nil {
-		m.loadGroupMemberships(c, user)
 		c.Locals("user", user)
 		return c.Next()
 	}
@@ -152,17 +149,8 @@ func (m *AuthMiddleware) OptionalAuth(c fiber.Ctx) error {
 
 	user, err := m.db.GetUserBySub(c.Context(), userSub)
 	if err == nil {
-		m.loadGroupMemberships(c, user)
 		c.Locals("user", user)
 	}
 
 	return c.Next()
-}
-
-// loadGroupMemberships loads the user's group memberships for tier-based resolution.
-func (m *AuthMiddleware) loadGroupMemberships(c fiber.Ctx, user *models.User) {
-	memberships, err := m.db.GetUserMemberships(c.Context(), user.ID)
-	if err == nil {
-		user.GroupMemberships = memberships
-	}
 }

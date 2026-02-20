@@ -34,11 +34,13 @@ func (h *ResolveHandler) Resolve(c fiber.Ctx) error {
 	user, _ := c.Locals("user").(*models.User)
 
 	var userID *uuid.UUID
+	var orgID *uuid.UUID
 	if user != nil {
 		userID = &user.ID
+		orgID = user.OrganizationID
 	}
 
-	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, keyword)
+	resolved, err := h.db.ResolveKeywordForUser(c.Context(), userID, orgID, keyword)
 	if err != nil {
 		if errors.Is(err, db.ErrLinkNotFound) {
 			return jsonError(c, fiber.StatusNotFound, "keyword not found")
@@ -49,7 +51,6 @@ func (h *ResolveHandler) Resolve(c fiber.Ctx) error {
 	return jsonSuccess(c, models.ResolveResponse{
 		Keyword: keyword,
 		URL:     resolved.URL,
-		Tier:    resolved.Tier,
 		Source:  resolved.Source,
 	})
 }

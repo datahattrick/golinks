@@ -96,7 +96,6 @@ Constraints: `no_self_share` CHECK prevents sender = recipient. `unique_pending_
 | `id` | UUID | Primary key |
 | `name` | TEXT | Group name |
 | `slug` | TEXT | URL-friendly identifier |
-| `tier` | INTEGER | Resolution priority (1–99) |
 | `parent_id` | UUID | Parent group FK |
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
 | `updated_at` | TIMESTAMPTZ | Last update |
