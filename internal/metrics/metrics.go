@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -32,9 +33,12 @@ func (c *KeywordCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect queries the database for all keyword lookups and emits them as counters.
 func (c *KeywordCollector) Collect(ch chan<- prometheus.Metric) {
-	lookups, err := c.db.GetAllKeywordLookups(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	lookups, err := c.db.GetAllKeywordLookups(ctx)
 	if err != nil {
-		slog.Error("failed to collect keyword lookup metrics", "error", err)
+		slog.Warn("failed to collect keyword lookup metrics — scrape will show no keyword data", "error", err)
 		return
 	}
 	for _, l := range lookups {

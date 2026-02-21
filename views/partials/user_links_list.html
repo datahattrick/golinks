@@ -47,7 +47,7 @@
                 hx-delete="/my-links/{{.ID}}"
                 hx-target="#user-link-{{.ID}}"
                 hx-swap="outerHTML"
-                hx-confirm="Remove this personal link?">
+                hx-confirm="Remove your personal shortcut go/{{.Keyword}}?">
                 Remove
             </button>
             <span class="text-sm font-mono text-gray-700 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>

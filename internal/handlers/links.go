@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"html"
 	"strconv"
 	"strings"
 
@@ -32,13 +31,6 @@ func NewLinkHandler(database *db.DB, cfg *config.Config) *LinkHandler {
 	return &LinkHandler{db: database, cfg: cfg}
 }
 
-// htmxError returns an error message as HTML that HTMX will display.
-// Uses 200 status so HTMX processes the swap (HTMX ignores non-2xx by default).
-func htmxError(c fiber.Ctx, message string) error {
-	return c.SendString(
-		`<div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">` + html.EscapeString(message) + `</div>`,
-	)
-}
 
 // Index renders the home page with search box.
 func (h *LinkHandler) Index(c fiber.Ctx) error {
@@ -50,7 +42,7 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 		"EnablePersonalLinks":  h.cfg.EnablePersonalLinks,
 		"EnableOrgLinks":       h.cfg.EnableOrgLinks,
 		"IsSimpleMode":         h.cfg.IsSimpleMode(),
-	}, h.cfg)
+	}, h.cfg, c.Path())
 
 	// Fetch top used, newest, and random keywords
 	var orgID *uuid.UUID
@@ -61,10 +53,17 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 	// Top used links (global/org only, no personal) with 24h sparkline data
 	topUsed, err := h.db.GetTopApprovedLinks(c.Context(), orgID, 5)
 	if err == nil {
+		// Fetch all click histories in a single batch query
+		ids := make([]uuid.UUID, len(topUsed))
+		for i, link := range topUsed {
+			ids[i] = link.ID
+		}
+		historyMap, _ := h.db.GetClickHistoryBatch(c.Context(), ids)
+
 		sparklines := make([]linkWithSparkline, len(topUsed))
 		for i, link := range topUsed {
-			history, hErr := h.db.GetClickHistory24h(c.Context(), link.ID)
-			if hErr != nil || len(history) == 0 {
+			history := historyMap[link.ID]
+			if len(history) == 0 {
 				history = make([]int, 24)
 			}
 			parts := make([]string, len(history))
@@ -111,7 +110,7 @@ func (h *LinkHandler) Search(c fiber.Ctx) error {
 		"Links": links,
 		"Query": query,
 		"User":  user,
-	}, h.cfg))
+	}, h.cfg, c.Path()))
 }
 
 // Suggest returns autocomplete suggestions for HTMX.
@@ -174,7 +173,7 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 		"Links":    links,
 		"User":     user,
 		"OrgNames": orgNames,
-	}, h.cfg))
+	}, h.cfg, c.Path()))
 }
 
 // New renders the create link form.
@@ -193,6 +192,7 @@ func (h *LinkHandler) New(c fiber.Ctx) error {
 		"OrgName":             orgName,
 		"EnablePersonalLinks": h.cfg.EnablePersonalLinks,
 		"EnableOrgLinks":      h.cfg.EnableOrgLinks,
+		"PrefillKeyword":      c.Query("keyword"),
 	}
 
 	// Admins can create org links for any organization
@@ -202,7 +202,7 @@ func (h *LinkHandler) New(c fiber.Ctx) error {
 		}
 	}
 
-	return c.Render("new", MergeBranding(data, h.cfg))
+	return c.Render("new", MergeBranding(data, h.cfg, c.Path()))
 }
 
 // splitKeywords splits a comma-separated keyword string into normalized, unique keywords.

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -220,6 +221,11 @@ func (s *Server) Start() error {
 // Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown() error {
 	return s.App.Shutdown()
+}
+
+// ShutdownWithContext gracefully shuts down the server, respecting the context deadline.
+func (s *Server) ShutdownWithContext(ctx context.Context) error {
+	return s.App.ShutdownWithContext(ctx)
 }
 
 // deriveEncryptionKey derives a 32-byte encryption key from the session secret.

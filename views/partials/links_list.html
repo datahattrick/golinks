@@ -48,10 +48,16 @@
     </div>
 </div>
 {{else}}
-<div class="text-center py-12">
-    <svg class="w-16 h-16 mx-auto mb-4 text-gray-600 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="text-center py-16">
+    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
     </svg>
-    <p class="text-gray-700 dark:text-gray-400">No links found</p>
+    <p class="text-gray-700 dark:text-gray-400 mb-4">{{if $.Query}}No links found for "{{$.Query}}"{{else}}No links yet{{end}}</p>
+    <a href="/new{{if $.Query}}?keyword={{$.Query}}{{end}}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-sm hover:shadow-md" style="background: linear-gradient(to right, #06b6d4, #14b8a6);">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        {{if $.Query}}Create a link for "{{$.Query}}"{{else}}Create the first one{{end}}
+    </a>
 </div>
 {{end}}

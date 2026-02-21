@@ -108,7 +108,9 @@ func main() {
 	<-quit
 
 	slog.Info("shutting down server...")
-	if err := srv.Shutdown(); err != nil {
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	if err := srv.ShutdownWithContext(shutdownCtx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
 		os.Exit(1)
 	}

@@ -69,6 +69,9 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Get("/profile", authMiddleware.RequireAuth, profileHandler.Show)
 	s.App.Patch("/profile/fallback", authMiddleware.RequireAuth, profileHandler.UpdateFallbackPreference)
 
+	// Pending submissions count badge (available regardless of personal links setting)
+	s.App.Get("/my-links/pending-count", authMiddleware.RequireAuth, userLinkHandler.PendingCount)
+
 	// User link override routes (only if personal links enabled)
 	if s.Cfg.EnablePersonalLinks {
 		s.App.Get("/my-links", authMiddleware.RequireAuth, userLinkHandler.List)

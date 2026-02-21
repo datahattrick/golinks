@@ -14,6 +14,7 @@
                 required
                 pattern="[a-zA-Z0-9_-]+"
                 placeholder="my-link or docs,wiki,help"
+                value="{{.PrefillKeyword}}"
                 hx-get="/links/check"
                 hx-trigger="input changed delay:300ms, blur"
                 hx-target="#keyword-check"

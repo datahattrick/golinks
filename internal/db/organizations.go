@@ -10,7 +10,6 @@ import (
 	"golinks/internal/models"
 )
 
-var ErrOrgNotFound = errors.New("organization not found")
 
 // CreateOrganization creates a new organization.
 func (d *DB) CreateOrganization(ctx context.Context, org *models.Organization) error {

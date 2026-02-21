@@ -93,7 +93,7 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 		return c.Render("partials/manage_links_list", data, "")
 	}
 
-	return c.Render("manage", MergeBranding(data, h.cfg))
+	return c.Render("manage", MergeBranding(data, h.cfg, c.Path()))
 }
 
 // Edit renders the inline edit form for a link.

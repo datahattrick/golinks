@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -57,7 +58,21 @@ func (h *UserLinkHandler) List(c fiber.Ctx) error {
 		"IncomingShares": incomingShares,
 		"OutgoingShares": outgoingShares,
 		"User":           user,
-	}, h.cfg))
+	}, h.cfg, c.Path()))
+}
+
+// PendingCount returns an HTML badge showing the number of pending submissions for the current user.
+// Used by the navbar to lazily load the count via HTMX.
+func (h *UserLinkHandler) PendingCount(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
+	links, err := h.db.GetPendingLinksByUser(c.Context(), user.ID)
+	if err != nil || len(links) == 0 {
+		return c.SendString("")
+	}
+	return c.SendString(fmt.Sprintf(
+		`<span class="ml-1 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 text-xs font-bold rounded-full bg-amber-500 text-white">%d</span>`,
+		len(links),
+	))
 }
 
 // Create creates new user link overrides. Supports comma-separated keywords.

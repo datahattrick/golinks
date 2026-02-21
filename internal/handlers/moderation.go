@@ -86,7 +86,7 @@ func (h *ModerationHandler) Index(c fiber.Ctx) error {
 		"DeletionRequests": deletionRequests,
 		"EditRequests":     editRequests,
 		"OrgNames":         orgNames,
-	}, h.cfg))
+	}, h.cfg, c.Path()))
 }
 
 // Approve approves a pending link.

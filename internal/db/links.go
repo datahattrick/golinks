@@ -14,10 +14,6 @@ import (
 	"golinks/internal/models"
 )
 
-var (
-	ErrDuplicateKeyword = errors.New("keyword already exists")
-	ErrLinkNotFound     = errors.New("link not found")
-)
 
 // linkColumns is the standard column list for link queries.
 const linkColumns = `id, keyword, url, description, scope, organization_id, status,
@@ -295,6 +291,51 @@ func (d *DB) GetClickHistory24h(ctx context.Context, linkID uuid.UUID) ([]int, e
 	return result, rows.Err()
 }
 
+// GetClickHistoryBatch returns 24-hour click histories for multiple links in a single query.
+// Returns a map from link ID to a slice of 24 hourly click counts (oldest to newest).
+func (d *DB) GetClickHistoryBatch(ctx context.Context, linkIDs []uuid.UUID) (map[uuid.UUID][]int, error) {
+	if len(linkIDs) == 0 {
+		return make(map[uuid.UUID][]int), nil
+	}
+
+	query := `
+		WITH hours AS (
+			SELECT generate_series(
+				DATE_TRUNC('hour', NOW() - INTERVAL '23 hours'),
+				DATE_TRUNC('hour', NOW()),
+				INTERVAL '1 hour'
+			) AS hour_bucket
+		),
+		targets AS (
+			SELECT unnest($1::uuid[]) AS link_id
+		)
+		SELECT t.link_id, hours.hour_bucket, COALESCE(ch.click_count, 0)
+		FROM targets t
+		CROSS JOIN hours
+		LEFT JOIN click_history ch
+			ON ch.link_id = t.link_id AND ch.hour_bucket = hours.hour_bucket
+		ORDER BY t.link_id, hours.hour_bucket
+	`
+
+	rows, err := d.Pool.Query(ctx, query, linkIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]int, len(linkIDs))
+	for rows.Next() {
+		var linkID uuid.UUID
+		var bucket time.Time
+		var count int
+		if err := rows.Scan(&linkID, &bucket, &count); err != nil {
+			return nil, err
+		}
+		result[linkID] = append(result[linkID], count)
+	}
+	return result, rows.Err()
+}
+
 // GetPendingGlobalLinks retrieves all pending global links for moderation.
 func (d *DB) GetPendingGlobalLinks(ctx context.Context) ([]models.Link, error) {
 	query := `
@@ -373,56 +414,19 @@ func (d *DB) GetApprovedOrgLinks(ctx context.Context, orgID uuid.UUID) ([]models
 // SearchApprovedLinks searches for approved links by keyword, URL, or description.
 // If orgID is provided, includes org-scoped links for that organization.
 func (d *DB) SearchApprovedLinks(ctx context.Context, queryStr string, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	var sql string
-	var args []any
-
-	if strings.TrimSpace(queryStr) == "" {
-		if orgID != nil {
-			sql = `
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-				ORDER BY click_count DESC, keyword ASC
-				LIMIT $5
-			`
-			args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
-		} else {
-			sql = `
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $1 AND scope = $2
-				ORDER BY click_count DESC, keyword ASC
-				LIMIT $3
-			`
-			args = []any{models.StatusApproved, models.ScopeGlobal, limit}
-		}
-	} else {
-		pattern := "%" + queryStr + "%"
-		if orgID != nil {
-			sql = `
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $1
-					AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-					AND (keyword ILIKE $5 OR url ILIKE $5 OR description ILIKE $5)
-				ORDER BY click_count DESC, keyword ASC
-				LIMIT $6
-			`
-			args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, pattern, limit}
-		} else {
-			sql = `
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $1 AND scope = $2
-					AND (keyword ILIKE $3 OR url ILIKE $3 OR description ILIKE $3)
-				ORDER BY click_count DESC, keyword ASC
-				LIMIT $4
-			`
-			args = []any{models.StatusApproved, models.ScopeGlobal, pattern, limit}
-		}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	// Single parameterized query replacing the previous 4-branch approach.
+	// $2::uuid IS NOT NULL controls whether org links are included.
+	// $3 = '' short-circuits the ILIKE filter when no search term is given.
+	sql := `
+		SELECT ` + linkColumns + `
+		FROM links
+		WHERE status = $1
+			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
+			AND ($3 = '' OR keyword ILIKE '%' || $3 || '%' OR url ILIKE '%' || $3 || '%' OR description ILIKE '%' || $3 || '%')
+		ORDER BY click_count DESC, keyword ASC
+		LIMIT $4
+	`
+	rows, err := d.Pool.Query(ctx, sql, models.StatusApproved, orgID, strings.TrimSpace(queryStr), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -768,51 +772,22 @@ func (d *DB) GetPendingDeletionRequests(ctx context.Context, user *models.User) 
 
 // GetTopUsedLinksForUser retrieves the most used keywords for a user (personal + org + global).
 func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	// Union personal (user_links), org, and global links, ordered by click count
-	var sql string
-	var args []any
-
-	if orgID != nil {
-		sql = `
-			WITH combined AS (
-				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
-					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
-					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
-					'' as reason, click_count, created_at, updated_at,
-					health_status, health_checked_at, health_error
-				FROM user_links WHERE user_id = $1
-				UNION ALL
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $2 AND scope = $3 AND organization_id = $4
-				UNION ALL
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $2 AND scope = $5
-			)
-			SELECT * FROM combined ORDER BY click_count DESC LIMIT $6
-		`
-		args = []any{userID, models.StatusApproved, models.ScopeOrg, *orgID, models.ScopeGlobal, limit}
-	} else {
-		sql = `
-			WITH combined AS (
-				SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
-					'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
-					NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
-					'' as reason, click_count, created_at, updated_at,
-					health_status, health_checked_at, health_error
-				FROM user_links WHERE user_id = $1
-				UNION ALL
-				SELECT ` + linkColumns + `
-				FROM links
-				WHERE status = $2 AND scope = $3
-			)
-			SELECT * FROM combined ORDER BY click_count DESC LIMIT $4
-		`
-		args = []any{userID, models.StatusApproved, models.ScopeGlobal, limit}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	rows, err := d.Pool.Query(ctx, `
+		WITH combined AS (
+			SELECT id, keyword, url, description, 'personal' as scope, NULL::uuid as organization_id,
+				'approved' as status, NULL::uuid as created_by, NULL::uuid as submitted_by,
+				NULL::uuid as reviewed_by, NULL::timestamp as reviewed_at,
+				'' as reason, click_count, created_at, updated_at,
+				health_status, health_checked_at, health_error
+			FROM user_links WHERE user_id = $1
+			UNION ALL
+			SELECT `+linkColumns+`
+			FROM links
+			WHERE status = $2
+				AND (scope = 'global' OR ($3::uuid IS NOT NULL AND scope = 'org' AND organization_id = $3))
+		)
+		SELECT * FROM combined ORDER BY click_count DESC LIMIT $4
+	`, userID, models.StatusApproved, orgID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -821,30 +796,14 @@ func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID
 
 // GetTopApprovedLinks retrieves the most clicked approved links (global + org if provided, no personal).
 func (d *DB) GetTopApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	var sql string
-	var args []any
-
-	if orgID != nil {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-			ORDER BY click_count DESC, keyword ASC
-			LIMIT $5
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
-	} else {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND scope = $2
-			ORDER BY click_count DESC, keyword ASC
-			LIMIT $3
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	rows, err := d.Pool.Query(ctx, `
+		SELECT `+linkColumns+`
+		FROM links
+		WHERE status = $1
+			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
+		ORDER BY click_count DESC, keyword ASC
+		LIMIT $3
+	`, models.StatusApproved, orgID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -853,30 +812,14 @@ func (d *DB) GetTopApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit in
 
 // GetNewestApprovedLinks retrieves the newest approved links (global + org if provided).
 func (d *DB) GetNewestApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	var sql string
-	var args []any
-
-	if orgID != nil {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-			ORDER BY created_at DESC
-			LIMIT $5
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
-	} else {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND scope = $2
-			ORDER BY created_at DESC
-			LIMIT $3
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	rows, err := d.Pool.Query(ctx, `
+		SELECT `+linkColumns+`
+		FROM links
+		WHERE status = $1
+			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
+		ORDER BY created_at DESC
+		LIMIT $3
+	`, models.StatusApproved, orgID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -885,30 +828,14 @@ func (d *DB) GetNewestApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit
 
 // GetRandomApprovedLinks retrieves random approved links (global + org if provided).
 func (d *DB) GetRandomApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	var sql string
-	var args []any
-
-	if orgID != nil {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-			ORDER BY RANDOM()
-			LIMIT $5
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, limit}
-	} else {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND scope = $2
-			ORDER BY RANDOM()
-			LIMIT $3
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, limit}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	rows, err := d.Pool.Query(ctx, `
+		SELECT `+linkColumns+`
+		FROM links
+		WHERE status = $1
+			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
+		ORDER BY RANDOM()
+		LIMIT $3
+	`, models.StatusApproved, orgID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -928,35 +855,17 @@ func (d *DB) GetRandomApprovedLink(ctx context.Context, orgID *uuid.UUID) (*mode
 }
 
 // GetSimilarKeywords returns approved links with keywords similar to the input,
-// ranked by trigram similarity. Uses the pg_trgm extension.
+// ranked by trigram similarity. Uses the pg_trgm extension (idx_links_keyword_trgm index).
 func (d *DB) GetSimilarKeywords(ctx context.Context, keyword string, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	var sql string
-	var args []any
-
-	if orgID != nil {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1
-				AND (scope = $2 OR (scope = $3 AND organization_id = $4))
-				AND similarity(keyword, $5) > 0.15
-			ORDER BY similarity(keyword, $5) DESC
-			LIMIT $6
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, models.ScopeOrg, *orgID, keyword, limit}
-	} else {
-		sql = `
-			SELECT ` + linkColumns + `
-			FROM links
-			WHERE status = $1 AND scope = $2
-				AND similarity(keyword, $3) > 0.15
-			ORDER BY similarity(keyword, $3) DESC
-			LIMIT $4
-		`
-		args = []any{models.StatusApproved, models.ScopeGlobal, keyword, limit}
-	}
-
-	rows, err := d.Pool.Query(ctx, sql, args...)
+	rows, err := d.Pool.Query(ctx, `
+		SELECT `+linkColumns+`
+		FROM links
+		WHERE status = $1
+			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
+			AND similarity(keyword, $3) > 0.15
+		ORDER BY similarity(keyword, $3) DESC
+		LIMIT $4
+	`, models.StatusApproved, orgID, keyword, limit)
 	if err != nil {
 		return nil, err
 	}
