@@ -10,7 +10,6 @@ import (
 	"golinks/internal/models"
 )
 
-var ErrFallbackRedirectNotFound = errors.New("fallback redirect not found")
 
 // ListFallbackRedirectsByOrg returns all fallback redirect options for an organization.
 func (d *DB) ListFallbackRedirectsByOrg(ctx context.Context, orgID uuid.UUID) ([]models.FallbackRedirect, error) {

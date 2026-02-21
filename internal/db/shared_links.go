@@ -11,12 +11,6 @@ import (
 	"golinks/internal/models"
 )
 
-var (
-	ErrShareLimitReached    = errors.New("you have reached the maximum number of pending outgoing shares")
-	ErrRecipientLimitReached = errors.New("recipient has reached the maximum number of pending incoming shares")
-	ErrDuplicateShare       = errors.New("you have already shared this keyword with this user")
-	ErrSharedLinkNotFound   = errors.New("shared link not found")
-)
 
 // CreateSharedLink inserts a share offer after checking anti-spam limits.
 func (d *DB) CreateSharedLink(ctx context.Context, link *models.SharedLink) error {

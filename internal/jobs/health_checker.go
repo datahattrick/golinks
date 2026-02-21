@@ -3,7 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -41,7 +41,7 @@ func NewHealthChecker(database *db.DB, interval, maxAge time.Duration) *HealthCh
 
 // Start begins the background health check loop.
 func (h *HealthChecker) Start(ctx context.Context) {
-	log.Printf("Health checker started (interval: %v, maxAge: %v)", h.interval, h.maxAge)
+	slog.Info("health checker started", "interval", h.interval, "max_age", h.maxAge)
 
 	// Run immediately on start
 	h.checkAll(ctx)
@@ -52,7 +52,7 @@ func (h *HealthChecker) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Health checker stopped")
+			slog.Info("health checker stopped")
 			return
 		case <-ticker.C:
 			h.checkAll(ctx)
@@ -64,7 +64,7 @@ func (h *HealthChecker) Start(ctx context.Context) {
 func (h *HealthChecker) checkAll(ctx context.Context) {
 	links, err := h.db.GetLinksNeedingHealthCheck(ctx, h.maxAge, 50)
 	if err != nil {
-		log.Printf("Health checker: failed to get links: %v", err)
+		slog.Error("health checker: failed to get links", "error", err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *HealthChecker) checkAll(ctx context.Context) {
 		return
 	}
 
-	log.Printf("Health checker: checking %d links", len(links))
+	slog.Info("health checker: checking links", "count", len(links))
 
 	for _, link := range links {
 		// Check context before each link
@@ -84,7 +84,7 @@ func (h *HealthChecker) checkAll(ctx context.Context) {
 
 		status, errorMsg := h.checkURL(ctx, link.URL)
 		if err := h.db.UpdateLinkHealthStatus(ctx, link.ID, status, errorMsg); err != nil {
-			log.Printf("Health checker: failed to update link %s: %v", link.Keyword, err)
+			slog.Error("health checker: failed to update link status", "keyword", link.Keyword, "error", err)
 			continue
 		}
 

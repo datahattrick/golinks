@@ -103,7 +103,7 @@ func Load() *Config {
 		OIDCClientID:     getEnv("OIDC_CLIENT_ID", ""),
 		OIDCClientSecret: getEnv("OIDC_CLIENT_SECRET", ""),
 		OIDCRedirectURL:  getEnv("OIDC_REDIRECT_URL", "http://localhost:3000/auth/callback"),
-		OIDCOrgClaim:        getEnv("OIDC_ORG_CLAIM", "organisation"), // OIDC claim name for organization
+		OIDCOrgClaim:        getEnv("OIDC_ORG_CLAIM", "organization"), // OIDC claim name for organization
 		OIDCGroupsClaim:     getEnv("OIDC_GROUPS_CLAIM", "groups"),
 		OIDCAdminGroups:     parseStringList(getEnv("OIDC_ADMIN_GROUPS", "")),
 		OIDCModeratorGroups: parseStringList(getEnv("OIDC_MODERATOR_GROUPS", "")),
@@ -209,17 +209,25 @@ func parseStringList(val string) []string {
 // cssColorRe matches hex colors (#rgb, #rrggbb, #rrggbbaa).
 var cssColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
 
-// cssNameRe matches simple CSS color names (letters only, max 20 chars).
-var cssNameRe = regexp.MustCompile(`^[a-zA-Z]{1,20}$`)
+// cssNamedColors is the set of valid CSS named colours. Restricting to known
+// names prevents arbitrary alphabetic strings from being injected into HTML.
+var cssNamedColors = map[string]bool{
+	"black": true, "white": true, "red": true, "green": true, "blue": true,
+	"yellow": true, "orange": true, "purple": true, "pink": true, "brown": true,
+	"gray": true, "grey": true, "cyan": true, "magenta": true, "lime": true,
+	"maroon": true, "navy": true, "olive": true, "teal": true, "aqua": true,
+	"coral": true, "salmon": true, "gold": true, "indigo": true, "violet": true,
+	"transparent": true,
+}
 
 // sanitizeCSSColor validates a color value, returning the fallback if invalid.
-// Allows hex colors and simple CSS named colors to prevent CSS injection.
+// Allows hex colors (#rgb / #rrggbb / #rrggbbaa) and a whitelist of CSS named colors.
 func sanitizeCSSColor(val, fallback string) string {
 	val = strings.TrimSpace(val)
 	if cssColorRe.MatchString(val) {
 		return val
 	}
-	if cssNameRe.MatchString(val) {
+	if cssNamedColors[strings.ToLower(val)] {
 		return val
 	}
 	return fallback
@@ -229,6 +237,17 @@ func sanitizeCSSColor(val, fallback string) string {
 func (c *Config) Validate() {
 	if c.SessionSecret == "change-me-in-production-min-32-chars" && !c.IsDev() {
 		slog.Warn("SESSION_SECRET is using the default value — set a strong random secret in production")
+	}
+	if c.OIDCIssuer != "" {
+		if c.OIDCClientID == "" {
+			slog.Warn("OIDC_CLIENT_ID is not set — OIDC authentication will fail")
+		}
+		if c.OIDCClientSecret == "" {
+			slog.Warn("OIDC_CLIENT_SECRET is not set — OIDC authentication will fail")
+		}
+	}
+	if c.SMTPEnabled && c.SMTPHost == "" {
+		slog.Warn("SMTP_ENABLED is set but SMTP_HOST is not configured — email notifications will be disabled")
 	}
 }
 

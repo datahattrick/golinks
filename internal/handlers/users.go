@@ -51,7 +51,7 @@ func (h *UserHandler) ListUsers(c fiber.Ctx) error {
 		"Orgs":      orgs,
 		"OrgCounts": orgCounts,
 		"Roles":     []string{models.RoleUser, models.RoleOrgMod, models.RoleGlobalMod, models.RoleAdmin},
-	}, h.cfg))
+	}, h.cfg, c.Path()))
 }
 
 // UpdateUserRole updates a user's role (admin only).

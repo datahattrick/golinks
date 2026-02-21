@@ -11,7 +11,6 @@ import (
 	"golinks/internal/models"
 )
 
-var ErrUserLinkNotFound = errors.New("user link not found")
 
 // CreateUserLink creates a new user-specific link override.
 func (d *DB) CreateUserLink(ctx context.Context, link *models.UserLink) error {

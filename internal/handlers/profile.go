@@ -45,7 +45,7 @@ func (h *ProfileHandler) Show(c fiber.Ctx) error {
 		}
 	}
 
-	return c.Render("profile", MergeBranding(data, h.cfg))
+	return c.Render("profile", MergeBranding(data, h.cfg, c.Path()))
 }
 
 // UpdateFallbackPreference updates the user's fallback redirect preference.

@@ -33,7 +33,8 @@ func GetBrandingData(cfg *config.Config) BrandingData {
 }
 
 // MergeBranding adds branding data to a fiber.Map for template rendering.
-func MergeBranding(data fiber.Map, cfg *config.Config) fiber.Map {
+// Pass c.Path() as the currentPath argument to enable server-side nav active state.
+func MergeBranding(data fiber.Map, cfg *config.Config, currentPath ...string) fiber.Map {
 	branding := GetBrandingData(cfg)
 	data["SiteTitle"] = branding.SiteTitle
 	data["SiteTagline"] = branding.SiteTagline
@@ -43,5 +44,8 @@ func MergeBranding(data fiber.Map, cfg *config.Config) fiber.Map {
 	data["BannerText"] = branding.BannerText
 	data["BannerTextColor"] = branding.BannerTextColor
 	data["BannerBGColor"] = branding.BannerBGColor
+	if len(currentPath) > 0 {
+		data["CurrentPath"] = currentPath[0]
+	}
 	return data
 }

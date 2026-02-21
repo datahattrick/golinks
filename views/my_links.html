@@ -138,6 +138,7 @@
                 <div id="selected-recipients" class="flex flex-wrap gap-1.5 mb-2 empty:mb-0"></div>
                 <!-- Hidden inputs container for form submission -->
                 <div id="recipient-inputs"></div>
+                <p id="share-recipient-hint" class="text-xs text-amber-600 dark:text-amber-400 mb-1">Add at least one recipient to share</p>
                 <div class="relative">
                     <input
                         type="text"
@@ -172,11 +173,12 @@
                     name="description"
                     placeholder="description"
                     class="px-4 py-2.5 text-sm rounded-xl border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-brand-500 outline-none w-40 transition-all">
-                <button type="submit" class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md shadow-blue-500/25">
+                <button type="submit" id="share-submit-btn" disabled class="px-5 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md shadow-blue-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none">
                     Share
                 </button>
             </div>
         </form>
+        <p class="text-xs text-gray-500 dark:text-gray-500 mt-3">Recipients can accept or decline this offer. Accepted links appear in their personal shortcuts.</p>
     </div>
 
     <h2 class="text-sm font-semibold mb-3 flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -218,9 +220,13 @@ function clearRecipients() {
 function renderRecipients() {
     var chips = document.getElementById('selected-recipients');
     var inputs = document.getElementById('recipient-inputs');
+    var submitBtn = document.getElementById('share-submit-btn');
+    var hint = document.getElementById('share-recipient-hint');
     chips.innerHTML = '';
     inputs.innerHTML = '';
+    var count = 0;
     for (var id in selectedRecipients) {
+        count++;
         var r = selectedRecipients[id];
         var chip = document.createElement('span');
         chip.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium';
@@ -236,6 +242,8 @@ function renderRecipients() {
         input.value = id;
         inputs.appendChild(input);
     }
+    if (submitBtn) submitBtn.disabled = count === 0;
+    if (hint) hint.classList.toggle('hidden', count > 0);
 }
 
 function prefillShare(keyword, url, description) {

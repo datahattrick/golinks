@@ -26,10 +26,11 @@
                 <div class="glass-card rounded-xl p-4" id="link-{{.ID}}">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                 <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span>
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">pending</span>
                                 <span id="health-{{.ID}}"></span>
+                                <span class="text-xs text-gray-500 dark:text-gray-500" title="Submitted {{.CreatedAt.Format "2006-01-02 15:04 UTC"}}">{{.CreatedAt.Format "Jan 2, 2006"}}</span>
                             </div>
                             <a href="{{.URL}}" target="_blank" class="text-sm text-gray-800 dark:text-gray-400 hover:text-brand-600 hover:underline truncate block transition-colors">{{.URL}}</a>
                             {{if .Description}}
@@ -39,28 +40,47 @@
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">Reason: {{.Reason}}</p>
                             {{end}}
                         </div>
-                        <div class="flex gap-2 flex-shrink-0">
-                            <button
-                                hx-post="/health/{{.ID}}"
-                                hx-target="#health-{{.ID}}"
-                                hx-swap="innerHTML"
-                                class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
-                                Check
-                            </button>
-                            <button
-                                hx-post="/moderation/{{.ID}}/approve"
-                                hx-target="#link-{{.ID}}"
-                                hx-swap="outerHTML"
-                                class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all font-medium shadow-md shadow-green-500/25">
-                                Approve
-                            </button>
-                            <button
-                                hx-post="/moderation/{{.ID}}/reject"
-                                hx-target="#link-{{.ID}}"
-                                hx-swap="outerHTML"
-                                class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
-                                Reject
-                            </button>
+                        <div class="flex flex-col items-end gap-2 flex-shrink-0">
+                            <div class="flex gap-2">
+                                <button
+                                    hx-post="/health/{{.ID}}"
+                                    hx-target="#health-{{.ID}}"
+                                    hx-swap="innerHTML"
+                                    class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                    Check
+                                </button>
+                                <button
+                                    hx-post="/moderation/{{.ID}}/approve"
+                                    hx-target="#link-{{.ID}}"
+                                    hx-swap="outerHTML"
+                                    class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all font-medium shadow-md shadow-green-500/25">
+                                    Approve
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="showRejectForm('{{.ID}}')"
+                                    class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
+                                    Reject
+                                </button>
+                            </div>
+                            <div id="reject-form-{{.ID}}" class="hidden w-full space-y-2">
+                                <input id="reject-reason-{{.ID}}" type="text" name="reason" placeholder="Rejection reason (optional)" maxlength="500"
+                                    class="w-full px-3 py-1.5 text-sm rounded-lg border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-red-500 outline-none transition-all">
+                                <div class="flex gap-2 justify-end">
+                                    <button
+                                        hx-post="/moderation/{{.ID}}/reject"
+                                        hx-target="#link-{{.ID}}"
+                                        hx-swap="outerHTML"
+                                        hx-include="#reject-reason-{{.ID}}"
+                                        class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
+                                        Confirm Reject
+                                    </button>
+                                    <button type="button" onclick="hideRejectForm('{{.ID}}')"
+                                        class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -82,13 +102,14 @@
                 <div class="glass-card rounded-xl p-4" id="link-{{.ID}}">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                 <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span>
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">pending</span>
                                 {{if .OrganizationID}}
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">{{index $orgNames .OrganizationID.String}}</span>
                                 {{end}}
                                 <span id="health-{{.ID}}"></span>
+                                <span class="text-xs text-gray-500 dark:text-gray-500" title="Submitted {{.CreatedAt.Format "2006-01-02 15:04 UTC"}}">{{.CreatedAt.Format "Jan 2, 2006"}}</span>
                             </div>
                             <a href="{{.URL}}" target="_blank" class="text-sm text-gray-800 dark:text-gray-400 hover:text-brand-600 hover:underline truncate block transition-colors">{{.URL}}</a>
                             {{if .Description}}
@@ -98,28 +119,47 @@
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">Reason: {{.Reason}}</p>
                             {{end}}
                         </div>
-                        <div class="flex gap-2 flex-shrink-0">
-                            <button
-                                hx-post="/health/{{.ID}}"
-                                hx-target="#health-{{.ID}}"
-                                hx-swap="innerHTML"
-                                class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
-                                Check
-                            </button>
-                            <button
-                                hx-post="/moderation/{{.ID}}/approve"
-                                hx-target="#link-{{.ID}}"
-                                hx-swap="outerHTML"
-                                class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all font-medium shadow-md shadow-green-500/25">
-                                Approve
-                            </button>
-                            <button
-                                hx-post="/moderation/{{.ID}}/reject"
-                                hx-target="#link-{{.ID}}"
-                                hx-swap="outerHTML"
-                                class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
-                                Reject
-                            </button>
+                        <div class="flex flex-col items-end gap-2 flex-shrink-0">
+                            <div class="flex gap-2">
+                                <button
+                                    hx-post="/health/{{.ID}}"
+                                    hx-target="#health-{{.ID}}"
+                                    hx-swap="innerHTML"
+                                    class="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                    Check
+                                </button>
+                                <button
+                                    hx-post="/moderation/{{.ID}}/approve"
+                                    hx-target="#link-{{.ID}}"
+                                    hx-swap="outerHTML"
+                                    class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 transition-all font-medium shadow-md shadow-green-500/25">
+                                    Approve
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="showRejectForm('{{.ID}}')"
+                                    class="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
+                                    Reject
+                                </button>
+                            </div>
+                            <div id="reject-form-{{.ID}}" class="hidden w-full space-y-2">
+                                <input id="reject-reason-{{.ID}}" type="text" name="reason" placeholder="Rejection reason (optional)" maxlength="500"
+                                    class="w-full px-3 py-1.5 text-sm rounded-lg border-0 bg-white/80 dark:bg-gray-800/50 focus:ring-2 focus:ring-red-500 outline-none transition-all">
+                                <div class="flex gap-2 justify-end">
+                                    <button
+                                        hx-post="/moderation/{{.ID}}/reject"
+                                        hx-target="#link-{{.ID}}"
+                                        hx-swap="outerHTML"
+                                        hx-include="#reject-reason-{{.ID}}"
+                                        class="px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all font-medium shadow-md shadow-red-500/25">
+                                        Confirm Reject
+                                    </button>
+                                    <button type="button" onclick="hideRejectForm('{{.ID}}')"
+                                        class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -140,9 +180,10 @@
                 <div class="glass-card rounded-xl p-4" id="edit-request-{{.ID}}">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                 <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span>
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium">edit request</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-500" title="Requested {{.CreatedAt.Format "2006-01-02 15:04 UTC"}}">{{.CreatedAt.Format "Jan 2, 2006"}}</span>
                             </div>
                             <div class="text-sm mt-1 space-y-1">
                                 <p class="text-gray-700 dark:text-gray-400">
@@ -193,9 +234,10 @@
                 <div class="glass-card rounded-xl p-4" id="link-{{.ID}}">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                 <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span>
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-medium">deletion requested</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-500" title="Requested {{.UpdatedAt.Format "2006-01-02 15:04 UTC"}}">{{.UpdatedAt.Format "Jan 2, 2006"}}</span>
                             </div>
                             <a href="{{.URL}}" target="_blank" class="text-sm text-gray-800 dark:text-gray-400 hover:text-brand-600 hover:underline truncate block transition-colors">{{.URL}}</a>
                             {{if .Description}}
@@ -234,3 +276,19 @@
 
     {{end}}
 </div>
+
+<script>
+function showRejectForm(id) {
+    var form = document.getElementById('reject-form-' + id);
+    if (form) {
+        form.classList.remove('hidden');
+        var input = document.getElementById('reject-reason-' + id);
+        if (input) input.focus();
+    }
+}
+
+function hideRejectForm(id) {
+    var form = document.getElementById('reject-form-' + id);
+    if (form) form.classList.add('hidden');
+}
+</script>

@@ -3,9 +3,11 @@ package email
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/smtp"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"golinks/internal/config"
 )
@@ -24,9 +26,9 @@ func NewService(cfg *config.Config) *Service {
 	}
 
 	if s.enabled {
-		log.Printf("Email notifications enabled (SMTP: %s:%d)", cfg.SMTPHost, cfg.SMTPPort)
+		slog.Info("email notifications enabled", "smtp_host", cfg.SMTPHost, "smtp_port", cfg.SMTPPort)
 	} else {
-		log.Println("Email notifications disabled (SMTP not configured)")
+		slog.Info("email notifications disabled (SMTP not configured)")
 	}
 
 	return s
@@ -61,8 +63,8 @@ func (s *Service) Send(to []string, subject, htmlBody, textBody string) error {
 	msg.WriteString("MIME-Version: 1.0\r\n")
 
 	if htmlBody != "" && textBody != "" {
-		// Multipart message
-		boundary := "----=_Part_0_GoLinks"
+		// Multipart message — use a random UUID as boundary to avoid collisions with message content.
+		boundary := "----=_Part_" + uuid.New().String()
 		msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
 		msg.WriteString("\r\n")
 		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
@@ -210,7 +212,7 @@ func (s *Service) SendAsync(to []string, subject, htmlBody, textBody string) {
 
 	go func() {
 		if err := s.Send(to, subject, htmlBody, textBody); err != nil {
-			log.Printf("Failed to send email to %v: %v", to, err)
+			slog.Warn("failed to send email", "to", to, "subject", subject, "error", err)
 		}
 	}()
 }

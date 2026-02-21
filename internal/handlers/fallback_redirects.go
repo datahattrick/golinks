@@ -50,7 +50,7 @@ func (h *FallbackRedirectHandler) List(c fiber.Ctx) error {
 		"User":             user,
 		"Orgs":             orgs,
 		"OrgWithFallbacks": data,
-	}, h.cfg))
+	}, h.cfg, c.Path()))
 }
 
 // Create creates a new fallback redirect option (admin only).

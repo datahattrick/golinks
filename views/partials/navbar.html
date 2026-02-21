@@ -12,16 +12,16 @@
                 <!-- Desktop nav links -->
                 {{if .User}}
                 <div class="hidden sm:flex items-center gap-1">
-                    <a href="/browse" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/browse">Browse</a>
-                    <a href="/new" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/new">Create</a>
-                    <a href="/my-links" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/my-links">My Links</a>
+                    <a href="/browse" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/browse"}} nav-active{{end}}" data-path="/browse">Browse</a>
+                    <a href="/new" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/new"}} nav-active{{end}}" data-path="/new">Create</a>
+                    <a href="/my-links" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/my-links"}} nav-active{{end}}" data-path="/my-links">My Links<span hx-get="/my-links/pending-count" hx-trigger="load" hx-swap="outerHTML"></span></a>
                     {{if .User.IsOrgMod}}
-                    <a href="/moderation" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/moderation">Moderation</a>
+                    <a href="/moderation" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/moderation"}} nav-active{{end}}" data-path="/moderation">Moderation</a>
                     {{end}}
-                    <a href="/manage" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/manage">Manage</a>
+                    <a href="/manage" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/manage"}} nav-active{{end}}" data-path="/manage">Manage</a>
                     {{if .User.IsAdmin}}
-                    <a href="/admin/users" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/admin/users">Users</a>
-                    <a href="/admin/fallback-redirects" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors" data-path="/admin/fallback-redirects">Fallbacks</a>
+                    <a href="/admin/users" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/admin/users"}} nav-active{{end}}" data-path="/admin/users">Users</a>
+                    <a href="/admin/fallback-redirects" class="nav-link px-3 py-1.5 text-sm rounded-md text-gray-800 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors{{if eq .CurrentPath "/admin/fallback-redirects"}} nav-active{{end}}" data-path="/admin/fallback-redirects">Fallbacks</a>
                     {{end}}
                 </div>
                 {{end}}
@@ -79,16 +79,16 @@
         {{if .User}}
         <div id="mobile-menu" class="hidden sm:hidden mt-2 pt-2 border-t border-gray-200 dark:border-gray-700/50">
             <div class="flex flex-col gap-0.5">
-                <a href="/browse" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/browse">Browse</a>
-                <a href="/new" class="mobile-nav-link px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-sm shadow-brand-500/25 text-center" data-path="/new">Create</a>
-                <a href="/my-links" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/my-links">My Links</a>
+                <a href="/browse" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/browse"}} nav-active{{end}}" data-path="/browse">Browse</a>
+                <a href="/new" class="mobile-nav-link px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white hover:from-brand-600 hover:to-teal-600 transition-all font-medium shadow-sm shadow-brand-500/25 text-center{{if eq .CurrentPath "/new"}} nav-active{{end}}" data-path="/new">Create</a>
+                <a href="/my-links" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/my-links"}} nav-active{{end}}" data-path="/my-links">My Links<span hx-get="/my-links/pending-count" hx-trigger="load" hx-swap="outerHTML"></span></a>
                 {{if .User.IsOrgMod}}
-                <a href="/moderation" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/moderation">Moderation</a>
+                <a href="/moderation" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/moderation"}} nav-active{{end}}" data-path="/moderation">Moderation</a>
                 {{end}}
-                <a href="/manage" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/manage">Manage</a>
+                <a href="/manage" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/manage"}} nav-active{{end}}" data-path="/manage">Manage</a>
                 {{if .User.IsAdmin}}
-                <a href="/admin/users" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/admin/users">Users</a>
-                <a href="/admin/fallback-redirects" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" data-path="/admin/fallback-redirects">Fallbacks</a>
+                <a href="/admin/users" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/admin/users"}} nav-active{{end}}" data-path="/admin/users">Users</a>
+                <a href="/admin/fallback-redirects" class="mobile-nav-link px-3 py-2 text-sm rounded-lg text-gray-800 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-colors{{if eq .CurrentPath "/admin/fallback-redirects"}} nav-active{{end}}" data-path="/admin/fallback-redirects">Fallbacks</a>
                 {{end}}
             </div>
         </div>

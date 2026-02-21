@@ -12,11 +12,6 @@ import (
 	"golinks/internal/models"
 )
 
-var (
-	ErrEditRequestNotFound = errors.New("edit request not found")
-	ErrPendingRequestLimit = errors.New("you have reached the maximum number of pending requests (5)")
-	ErrDuplicateEditRequest = errors.New("you already have a pending edit request for this link")
-)
 
 // CreateEditRequest inserts a new edit request after checking limits.
 func (d *DB) CreateEditRequest(ctx context.Context, req *models.LinkEditRequest) error {

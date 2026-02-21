@@ -10,7 +10,33 @@ import (
 	"golinks/internal/models"
 )
 
-var ErrUserNotFound = errors.New("user not found")
+// userColumns is the standard column list for user queries.
+const userColumns = `id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at`
+
+// scanUser scans a single row into a User struct.
+func scanUser(row pgx.Row) (*models.User, error) {
+	var user models.User
+	err := row.Scan(
+		&user.ID,
+		&user.Sub,
+		&user.Username,
+		&user.Email,
+		&user.Name,
+		&user.Picture,
+		&user.Role,
+		&user.OrganizationID,
+		&user.FallbackRedirectID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
 
 // UpsertUser creates or updates a user based on their OIDC subject.
 func (d *DB) UpsertUser(ctx context.Context, user *models.User) error {
@@ -46,98 +72,17 @@ func nullIfEmpty(s string) any {
 
 // GetUserBySub retrieves a user by their OIDC subject identifier.
 func (d *DB) GetUserBySub(ctx context.Context, sub string) (*models.User, error) {
-	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
-		FROM users WHERE sub = $1
-	`
-
-	var user models.User
-	err := d.Pool.QueryRow(ctx, query, sub).Scan(
-		&user.ID,
-		&user.Sub,
-		&user.Username,
-		&user.Email,
-		&user.Name,
-		&user.Picture,
-		&user.Role,
-		&user.OrganizationID,
-		&user.FallbackRedirectID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return scanUser(d.Pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE sub = $1`, sub))
 }
 
 // GetUserByUsername retrieves a user by their PKI username.
 func (d *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
-	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
-		FROM users WHERE username = $1
-	`
-
-	var user models.User
-	err := d.Pool.QueryRow(ctx, query, username).Scan(
-		&user.ID,
-		&user.Sub,
-		&user.Username,
-		&user.Email,
-		&user.Name,
-		&user.Picture,
-		&user.Role,
-		&user.OrganizationID,
-		&user.FallbackRedirectID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return scanUser(d.Pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE username = $1`, username))
 }
 
 // GetUserByID retrieves a user by their UUID.
 func (d *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
-	query := `
-		SELECT id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at
-		FROM users WHERE id = $1
-	`
-
-	var user models.User
-	err := d.Pool.QueryRow(ctx, query, id).Scan(
-		&user.ID,
-		&user.Sub,
-		&user.Username,
-		&user.Email,
-		&user.Name,
-		&user.Picture,
-		&user.Role,
-		&user.OrganizationID,
-		&user.FallbackRedirectID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return scanUser(d.Pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE id = $1`, id))
 }
 
 // UpdateUserRole updates a user's role (admin only).

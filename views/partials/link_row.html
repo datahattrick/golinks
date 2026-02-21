@@ -5,7 +5,16 @@
 {{else}}
 <tr id="link-{{.Link.ID}}" class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
     <td class="py-3 pr-4">
-        <a href="/go/{{.Link.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{{.Link.Keyword}}</a>
+        <div class="flex items-center gap-1.5 flex-wrap">
+            <a href="/go/{{.Link.Keyword}}" class="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline">{{.Link.Keyword}}</a>
+            {{if eq .Link.Scope "global"}}
+            <span class="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">Global</span>
+            {{else if eq .Link.Scope "org"}}
+            <span class="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300">Org</span>
+            {{else if eq .Link.Scope "personal"}}
+            <span class="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300">Personal</span>
+            {{end}}
+        </div>
         {{if .Link.Description}}<p class="text-sm text-gray-700 dark:text-gray-400 mt-0.5">{{.Link.Description}}</p>{{end}}
     </td>
     <td class="py-3 pr-4 max-w-xs truncate">
@@ -21,7 +30,7 @@
                 hx-delete="/links/{{.Link.ID}}"
                 hx-target="#link-{{.Link.ID}}"
                 hx-swap="outerHTML"
-                hx-confirm="Delete this link?">
+                hx-confirm="Delete go/{{.Link.Keyword}}? This action cannot be undone.">
                 Delete
             </button>
             {{end}}
