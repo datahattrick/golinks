@@ -95,13 +95,18 @@ func (h *LinkHandler) Search(c fiber.Ctx) error {
 	query := c.Query("q", "")
 	user, _ := c.Locals("user").(*models.User)
 
-	// Get the user's org ID for search filtering
 	var orgID *uuid.UUID
 	if user != nil && user.OrganizationID != nil {
 		orgID = user.OrganizationID
 	}
 
-	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, 50)
+	var links []models.Link
+	var err error
+	if user != nil && h.cfg.EnablePersonalLinks {
+		links, err = h.db.SearchLinksForUser(c.Context(), query, user.ID, orgID, 50)
+	} else {
+		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, 50)
+	}
 	if err != nil {
 		return err
 	}
@@ -126,14 +131,28 @@ func (h *LinkHandler) Suggest(c fiber.Ctx) error {
 		orgID = user.OrganizationID
 	}
 
-	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, 5)
+	var links []models.Link
+	var err error
+	if user != nil && h.cfg.EnablePersonalLinks {
+		links, err = h.db.SearchLinksForUser(c.Context(), query, user.ID, orgID, 5)
+	} else {
+		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, 5)
+	}
 	if err != nil {
 		return err
 	}
 
+	orgNames := make(map[string]string)
+	if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
+		for _, org := range orgs {
+			orgNames[org.ID.String()] = org.Name
+		}
+	}
+
 	return c.Render("partials/suggestions", fiber.Map{
-		"Links": links,
-		"Query": query,
+		"Links":    links,
+		"Query":    query,
+		"OrgNames": orgNames,
 	}, "")
 }
 

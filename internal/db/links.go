@@ -336,49 +336,61 @@ func (d *DB) GetClickHistoryBatch(ctx context.Context, linkIDs []uuid.UUID) (map
 	return result, rows.Err()
 }
 
-// GetPendingGlobalLinks retrieves all pending global links for moderation.
+// GetPendingGlobalLinks retrieves all pending global links for moderation, including submitter info.
 func (d *DB) GetPendingGlobalLinks(ctx context.Context) ([]models.Link, error) {
-	query := `
-		SELECT ` + linkColumns + `
-		FROM links
-		WHERE scope = $1 AND status = $2
-		ORDER BY created_at ASC
+	sql := `
+		SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+			l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+			l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+			COALESCE(u.name, ''), COALESCE(u.email, '')
+		FROM links l
+		LEFT JOIN users u ON u.id = l.submitted_by
+		WHERE l.scope = $1 AND l.status = $2
+		ORDER BY l.created_at ASC
 	`
-	rows, err := d.Pool.Query(ctx, query, models.ScopeGlobal, models.StatusPending)
+	rows, err := d.Pool.Query(ctx, sql, models.ScopeGlobal, models.StatusPending)
 	if err != nil {
 		return nil, err
 	}
-	return scanLinks(rows)
+	return scanLinksWithAuthor(rows)
 }
 
-// GetPendingOrgLinks retrieves all pending org links for a specific organization.
+// GetPendingOrgLinks retrieves all pending org links for a specific organization, including submitter info.
 func (d *DB) GetPendingOrgLinks(ctx context.Context, orgID uuid.UUID) ([]models.Link, error) {
-	query := `
-		SELECT ` + linkColumns + `
-		FROM links
-		WHERE scope = $1 AND organization_id = $2 AND status = $3
-		ORDER BY created_at ASC
+	sql := `
+		SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+			l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+			l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+			COALESCE(u.name, ''), COALESCE(u.email, '')
+		FROM links l
+		LEFT JOIN users u ON u.id = l.submitted_by
+		WHERE l.scope = $1 AND l.organization_id = $2 AND l.status = $3
+		ORDER BY l.created_at ASC
 	`
-	rows, err := d.Pool.Query(ctx, query, models.ScopeOrg, orgID, models.StatusPending)
+	rows, err := d.Pool.Query(ctx, sql, models.ScopeOrg, orgID, models.StatusPending)
 	if err != nil {
 		return nil, err
 	}
-	return scanLinks(rows)
+	return scanLinksWithAuthor(rows)
 }
 
-// GetAllPendingOrgLinks retrieves all pending org links across all organizations.
+// GetAllPendingOrgLinks retrieves all pending org links across all organizations, including submitter info.
 func (d *DB) GetAllPendingOrgLinks(ctx context.Context) ([]models.Link, error) {
-	query := `
-		SELECT ` + linkColumns + `
-		FROM links
-		WHERE scope = $1 AND status = $2
-		ORDER BY created_at ASC
+	sql := `
+		SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
+			l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
+			l.created_at, l.updated_at, l.health_status, l.health_checked_at, l.health_error,
+			COALESCE(u.name, ''), COALESCE(u.email, '')
+		FROM links l
+		LEFT JOIN users u ON u.id = l.submitted_by
+		WHERE l.scope = $1 AND l.status = $2
+		ORDER BY l.created_at ASC
 	`
-	rows, err := d.Pool.Query(ctx, query, models.ScopeOrg, models.StatusPending)
+	rows, err := d.Pool.Query(ctx, sql, models.ScopeOrg, models.StatusPending)
 	if err != nil {
 		return nil, err
 	}
-	return scanLinks(rows)
+	return scanLinksWithAuthor(rows)
 }
 
 // GetApprovedGlobalLinks retrieves all approved global links.
@@ -436,6 +448,37 @@ func (d *DB) SearchApprovedLinks(ctx context.Context, queryStr string, orgID *uu
 // SearchLinks is kept for backwards compatibility - searches approved global links.
 func (d *DB) SearchLinks(ctx context.Context, query string, limit int) ([]models.Link, error) {
 	return d.SearchApprovedLinks(ctx, query, nil, limit)
+}
+
+// SearchLinksForUser searches approved links plus the user's personal links.
+// Personal links are included at the top of results; org and global links follow.
+func (d *DB) SearchLinksForUser(ctx context.Context, queryStr string, userID uuid.UUID, orgID *uuid.UUID, limit int) ([]models.Link, error) {
+	sql := `
+		WITH combined AS (
+			SELECT id, keyword, url, description, 'personal' AS scope, NULL::uuid AS organization_id,
+				'approved' AS status, NULL::uuid AS created_by, NULL::uuid AS submitted_by,
+				NULL::uuid AS reviewed_by, NULL::timestamp AS reviewed_at,
+				'' AS reason, click_count, created_at, updated_at,
+				health_status, health_checked_at, health_error
+			FROM user_links
+			WHERE user_id = $2
+				AND ($3 = '' OR keyword ILIKE '%' || $3 || '%' OR url ILIKE '%' || $3 || '%' OR description ILIKE '%' || $3 || '%')
+			UNION ALL
+			SELECT id, keyword, url, description, scope, organization_id, status,
+				created_by, submitted_by, reviewed_by, reviewed_at, reason, click_count, created_at, updated_at,
+				health_status, health_checked_at, health_error
+			FROM links
+			WHERE status = $1
+				AND (scope = 'global' OR ($4::uuid IS NOT NULL AND scope = 'org' AND organization_id = $4))
+				AND ($3 = '' OR keyword ILIKE '%' || $3 || '%' OR url ILIKE '%' || $3 || '%' OR description ILIKE '%' || $3 || '%')
+		)
+		SELECT * FROM combined ORDER BY click_count DESC, keyword ASC LIMIT $5
+	`
+	rows, err := d.Pool.Query(ctx, sql, models.StatusApproved, userID, strings.TrimSpace(queryStr), orgID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
 }
 
 // GetLinksByUser retrieves all links created/submitted by a specific user.

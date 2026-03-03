@@ -39,6 +39,9 @@
                             {{if .Reason}}
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">Reason: {{.Reason}}</p>
                             {{end}}
+                            {{if .AuthorName}}
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Submitted by <span class="font-medium">{{.AuthorName}}</span>{{if .AuthorEmail}} &middot; {{.AuthorEmail}}{{end}}</p>
+                            {{end}}
                         </div>
                         <div class="flex flex-col items-end gap-2 flex-shrink-0">
                             <div class="flex gap-2">
@@ -117,6 +120,9 @@
                             {{end}}
                             {{if .Reason}}
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">Reason: {{.Reason}}</p>
+                            {{end}}
+                            {{if .AuthorName}}
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Submitted by <span class="font-medium">{{.AuthorName}}</span>{{if .AuthorEmail}} &middot; {{.AuthorEmail}}{{end}}</p>
                             {{end}}
                         </div>
                         <div class="flex flex-col items-end gap-2 flex-shrink-0">

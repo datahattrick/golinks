@@ -172,15 +172,29 @@ func New(cfg *config.Config) *Server {
 	sessionMiddleware, _ := session.NewWithStore(sessionCfg)
 	app.Use(sessionMiddleware)
 
-	// Rate limiting middleware - 100 requests per minute per IP
+	// rateLimitKey returns a per-user or per-session key for rate limiting.
+	// Authenticated users are keyed by their OIDC subject; unauthenticated
+	// sessions by their session ID; fallback to IP for sessionless requests.
+	rateLimitKey := func(c fiber.Ctx) string {
+		sess := session.FromContext(c)
+		if sess != nil {
+			if userSub, ok := sess.Get("user_sub").(string); ok && userSub != "" {
+				return "user:" + userSub
+			}
+			if id := sess.ID(); id != "" {
+				return "sess:" + id
+			}
+		}
+		return "ip:" + c.IP()
+	}
+
+	// Rate limiting middleware - 100 requests per minute per user/session
 	app.Use(limiter.New(limiter.Config{
-		Max:        100,
-		Expiration: 1 * time.Minute,
-		KeyGenerator: func(c fiber.Ctx) string {
-			return c.IP()
-		},
+		Max:          100,
+		Expiration:   1 * time.Minute,
+		KeyGenerator: rateLimitKey,
 		LimitReached: func(c fiber.Ctx) error {
-			slog.Warn("rate limit exceeded", "ip", c.IP(), "path", c.Path())
+			slog.Warn("rate limit exceeded", "key", rateLimitKey(c), "path", c.Path())
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"error": "Rate limit exceeded. Please try again later.",
 			})
