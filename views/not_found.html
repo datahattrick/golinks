@@ -1,4 +1,17 @@
 <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
+    {{if .NeedsAuth}}
+    <div class="w-full max-w-lg mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-left">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">Sign-in may not be working</p>
+                <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">Personal and organisation links require authentication. If you were trying to reach a private link, signing in may help.</p>
+            </div>
+            <a href="/auth/login" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-all shadow-sm hover:shadow-md" style="background: linear-gradient(to right, #06b6d4, #14b8a6);">
+                Try to sign in
+            </a>
+        </div>
+    </div>
+    {{end}}
     <h1 class="text-4xl font-bold mb-2">Not Found</h1>
     <p class="text-gray-700 dark:text-gray-400 mb-8">The link <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">{{.Keyword}}</span> does not exist.</p>
 
@@ -34,4 +47,10 @@
             Go Home
         </a>
     </div>
+
+    {{if .FallbackOptions}}
+    <div class="w-full max-w-lg mt-12 pt-10 border-t border-gray-200 dark:border-gray-700">
+        {{template "partials/fallback_preference" .}}
+    </div>
+    {{end}}
 </div>

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/google/uuid"
 
 	"golinks/internal/config"
@@ -77,13 +78,29 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 				}
 			}
 			metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
+
+			// Store redirect destination for post-login return (unauthenticated, full mode only)
+			if user == nil && !h.cfg.IsSimpleMode() {
+				if sess := session.FromContext(c); sess != nil {
+					sess.Set("redirect_after_login", c.OriginalURL())
+				}
+			}
+
+			// Load fallback options for authenticated org members
+			var fallbackOptions []models.FallbackRedirect
+			if user != nil && user.OrganizationID != nil {
+				fallbackOptions, _ = h.db.ListFallbackRedirectsByOrg(c.Context(), *user.OrganizationID)
+			}
+
 			// Look up similar keywords for "did you mean?" suggestions
 			suggestions, _ := h.db.GetSimilarKeywords(c.Context(), keyword, orgID, 5)
 			return c.Status(fiber.StatusNotFound).Render("not_found", MergeBranding(fiber.Map{
-				"Title":       "Not Found",
-				"Keyword":     keyword,
-				"Suggestions": suggestions,
-				"User":        user,
+				"Title":           "Not Found",
+				"Keyword":         keyword,
+				"Suggestions":     suggestions,
+				"User":            user,
+				"NeedsAuth":       user == nil && !h.cfg.IsSimpleMode(),
+				"FallbackOptions": fallbackOptions,
 			}, h.cfg))
 		}
 		return err

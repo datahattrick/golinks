@@ -123,16 +123,13 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	// Random link route ("I'm Feeling Lucky")
 	s.App.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
 
-	// Redirect API routes - auth depends on mode
-	// Only /go/:keyword is used; the old /:keyword catch-all was removed because
-	// it shadowed real endpoints (any route name became an unreachable keyword).
+	// Redirect route - global links are always accessible; auth is attempted but not required.
+	// Personal/org links resolve naturally when the user is authenticated; unauthenticated
+	// users fall back to global-only resolution instead of being blocked entirely.
 	if s.Cfg.IsSimpleMode() {
-		slog.Info("running in simple mode, redirect API does not require authentication")
-		s.App.Get("/go/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
-	} else {
-		// Full mode - redirect routes require auth for personal/org resolution
-		s.App.Get("/go/:keyword", authMiddleware.RequireAuth, redirectHandler.Redirect)
+		slog.Info("running in simple mode, redirect route does not require authentication")
 	}
+	s.App.Get("/go/:keyword", authMiddleware.OptionalAuth, redirectHandler.Redirect)
 
 	// --- JSON API v1 routes ---
 	apiLinkHandler := api.NewLinkHandler(database, s.Cfg, notifier)
