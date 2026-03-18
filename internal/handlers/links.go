@@ -161,7 +161,7 @@ func (h *LinkHandler) Suggest(c fiber.Ctx) error {
 func (h *LinkHandler) Browse(c fiber.Ctx) error {
 	query := c.Query("q", "")
 	scope := c.Query("scope", "all")
-	if scope != "global" && scope != "org" {
+	if scope != "global" && scope != "org" && scope != "personal" {
 		scope = "all"
 	}
 
@@ -178,15 +178,35 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 	if scope == "org" && orgID == nil {
 		scope = "all"
 	}
+	// Personal filter only makes sense when the user is authenticated
+	if scope == "personal" && user == nil {
+		scope = "all"
+	}
 
 	offset := (page - 1) * perPage
-	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, scope, perPage, offset)
-	if err != nil {
-		return err
-	}
-	total, err := h.db.CountApprovedLinks(c.Context(), query, orgID, scope)
-	if err != nil {
-		return err
+
+	var links []models.Link
+	var total int
+	var err error
+
+	if scope == "personal" && user != nil {
+		links, err = h.db.SearchPersonalLinks(c.Context(), user.ID, query, perPage, offset)
+		if err != nil {
+			return err
+		}
+		total, err = h.db.CountPersonalLinks(c.Context(), user.ID, query)
+		if err != nil {
+			return err
+		}
+	} else {
+		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, scope, perPage, offset)
+		if err != nil {
+			return err
+		}
+		total, err = h.db.CountApprovedLinks(c.Context(), query, orgID, scope)
+		if err != nil {
+			return err
+		}
 	}
 
 	orgNames := make(map[string]string)
@@ -198,13 +218,14 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 
 	pag := buildPagination(page, perPage, total)
 	data := fiber.Map{
-		"Links":         links,
-		"User":          user,
-		"OrgNames":      orgNames,
-		"Query":         query,
-		"ScopeFilter":   scope,
-		"EnableOrgLinks": h.cfg.EnableOrgLinks,
-		"Pagination":    pag,
+		"Links":               links,
+		"User":                user,
+		"OrgNames":            orgNames,
+		"Query":               query,
+		"ScopeFilter":         scope,
+		"EnableOrgLinks":      h.cfg.EnableOrgLinks,
+		"EnablePersonalLinks": h.cfg.EnablePersonalLinks,
+		"Pagination":          pag,
 	}
 
 	if c.Get("HX-Request") == "true" {

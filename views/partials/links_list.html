@@ -35,7 +35,21 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
-            My Org
+            {{if and $.OrgNames .User.OrganizationID}}{{index $.OrgNames (.User.OrganizationID.String)}}{{else}}My Org{{end}}
+        </span>
+    </button>
+    {{end}}
+    {{if and $.EnablePersonalLinks $.User}}
+    <button
+        hx-get="/browse?scope=personal&per_page={{.Pagination.PerPage}}&page=1"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-3 py-1.5 text-sm rounded-lg transition-all font-medium {{if eq .ScopeFilter "personal"}}bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md{{else}}glass-card hover:shadow-md{{end}}">
+        <span class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            Personal
         </span>
     </button>
     {{end}}
@@ -122,7 +136,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
     </svg>
     <p class="text-gray-700 dark:text-gray-400 mb-4">{{if $.Query}}No links found for "{{$.Query}}"{{else}}No links yet{{end}}</p>
-    <a href="/new{{if $.Query}}?keyword={{$.Query}}{{end}}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-sm hover:shadow-md" style="background: linear-gradient(to right, #06b6d4, #14b8a6);">
+    <a href="/new{{if $.Query}}?keyword={{$.Query}}{{end}}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
