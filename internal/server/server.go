@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -39,6 +40,33 @@ func New(cfg *config.Config) *Server {
 	// Setup template engine
 	engine := html.New("./views", ".html")
 	engine.Reload(cfg.IsDev())
+	engine.AddFunc("relativeTime", func(t time.Time) string {
+		d := time.Since(t)
+		switch {
+		case d < time.Minute:
+			return "just now"
+		case d < time.Hour:
+			m := int(d.Minutes())
+			if m == 1 {
+				return "1 minute ago"
+			}
+			return fmt.Sprintf("%d minutes ago", m)
+		case d < 24*time.Hour:
+			h := int(d.Hours())
+			if h == 1 {
+				return "1 hour ago"
+			}
+			return fmt.Sprintf("%d hours ago", h)
+		case d < 7*24*time.Hour:
+			days := int(d.Hours() / 24)
+			if days == 1 {
+				return "yesterday"
+			}
+			return fmt.Sprintf("%d days ago", days)
+		default:
+			return t.Format("Jan 2")
+		}
+	})
 
 	// Initialize Fiber
 	app := fiber.New(fiber.Config{

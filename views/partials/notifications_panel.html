@@ -1,0 +1,87 @@
+{{define "partials/notifications_panel"}}
+{{if .ClearBadge}}<span id="notif-badge" hx-swap-oob="outerHTML:#notif-badge"></span>{{end}}
+<div class="flex items-center justify-between px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/50">
+    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
+    {{if .Notifications}}
+    <div class="flex items-center gap-3">
+        <button
+            hx-post="/notifications/read-all"
+            hx-target="#notif-panel-content"
+            hx-swap="innerHTML"
+            class="text-xs text-brand-600 dark:text-brand-400 hover:underline">
+            Mark all read
+        </button>
+        <button
+            hx-delete="/notifications"
+            hx-target="#notif-panel-content"
+            hx-swap="innerHTML"
+            class="text-xs text-red-500 dark:text-red-400 hover:underline">
+            Clear all
+        </button>
+    </div>
+    {{end}}
+</div>
+
+{{if not .Notifications}}
+<div class="flex flex-col items-center justify-center py-10 px-4 text-center">
+    <svg class="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+    </svg>
+    <p class="text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
+</div>
+{{else}}
+<div class="divide-y divide-gray-100/60 dark:divide-gray-700/40 max-h-80 overflow-y-auto">
+    {{range .Notifications}}
+    <div id="notif-{{.ID}}" class="group flex gap-3 px-4 py-3 hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors{{if not .Read}}{{if eq .Type "link_submitted"}} border-l-2 border-l-amber-400{{else if eq .Type "link_approved"}} border-l-2 border-l-green-400{{else if eq .Type "link_rejected"}} border-l-2 border-l-red-400{{else}} border-l-2 border-l-brand-400{{end}}{{end}}">
+        <div class="flex-shrink-0 mt-0.5">
+            {{if eq .Type "link_submitted"}}
+            <div class="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+            </div>
+            {{else if eq .Type "link_approved"}}
+            <div class="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            {{else if eq .Type "link_rejected"}}
+            <div class="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </div>
+            {{else}}
+            <div class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            {{end}}
+        </div>
+        <div class="flex-1 min-w-0 cursor-pointer" onclick="markNotifRead('{{.ID}}', '{{.ActionURL}}')">
+            <p class="text-xs{{if not .Read}} font-semibold{{end}} text-gray-900 dark:text-gray-100 leading-snug">{{.Title}}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{{.Body}}</p>
+            <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{{relativeTime .CreatedAt}}</p>
+        </div>
+        <div class="flex-shrink-0 self-center flex items-center gap-1.5">
+            {{if not .Read}}
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-500 block"></span>
+            {{end}}
+            <button
+                hx-delete="/notifications/{{.ID}}"
+                hx-target="#notif-{{.ID}}"
+                hx-swap="outerHTML"
+                title="Dismiss"
+                class="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition-opacity text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{end}}

@@ -73,6 +73,15 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Get("/profile", authMiddleware.RequireAuth, profileHandler.Show)
 	s.App.Patch("/profile/fallback", authMiddleware.RequireAuth, profileHandler.UpdateFallbackPreference)
 
+	// Notification bell routes
+	notifHandler := handlers.NewNotificationHandler(database)
+	s.App.Get("/notifications/count", authMiddleware.RequireAuth, notifHandler.Count)
+	s.App.Get("/notifications", authMiddleware.RequireAuth, notifHandler.List)
+	s.App.Post("/notifications/read-all", authMiddleware.RequireAuth, notifHandler.MarkAllRead)
+	s.App.Delete("/notifications", authMiddleware.RequireAuth, notifHandler.DeleteAll)
+	s.App.Post("/notifications/:id/read", authMiddleware.RequireAuth, notifHandler.MarkRead)
+	s.App.Delete("/notifications/:id", authMiddleware.RequireAuth, notifHandler.Delete)
+
 	// Pending submissions count badge (available regardless of personal links setting)
 	s.App.Get("/my-links/pending-count", authMiddleware.RequireAuth, userLinkHandler.PendingCount)
 

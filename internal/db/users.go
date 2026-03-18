@@ -265,6 +265,49 @@ func (d *DB) GetOrgModeratorEmails(ctx context.Context, orgID uuid.UUID) ([]stri
 	return emails, rows.Err()
 }
 
+// GetGlobalModeratorIDs returns IDs of all global_mod and admin users.
+func (d *DB) GetGlobalModeratorIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := d.Pool.Query(ctx, `SELECT id FROM users WHERE role IN ('admin', 'global_mod')`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetOrgModeratorIDs returns IDs of org_mod, global_mod, and admin users for an org.
+func (d *DB) GetOrgModeratorIDs(ctx context.Context, orgID uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+		SELECT id FROM users
+		WHERE role IN ('admin', 'global_mod')
+		   OR (role = 'org_mod' AND organization_id = $1)
+	`
+	rows, err := d.Pool.Query(ctx, query, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // GetUserCountByOrg returns user count grouped by organization.
 func (d *DB) GetUserCountByOrg(ctx context.Context) (map[string]int, error) {
 	query := `

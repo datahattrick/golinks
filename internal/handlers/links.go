@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -430,6 +431,11 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 			if Notifier != nil {
 				go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
 			}
+			if link.OrganizationID != nil {
+				if modIDs, err := h.db.GetOrgModeratorIDs(c.Context(), *link.OrganizationID); err == nil {
+					h.fanOutSubmissionNotifications(c, modIDs, link)
+				}
+			}
 		}
 		return ""
 	case "global":
@@ -459,6 +465,9 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 			}
 			if Notifier != nil {
 				go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
+			}
+			if modIDs, err := h.db.GetGlobalModeratorIDs(c.Context()); err == nil {
+				h.fanOutSubmissionNotifications(c, modIDs, link)
 			}
 		}
 		return ""
@@ -553,6 +562,11 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
 	}
 
+	// Fan out in-app notifications to org moderators
+	if modIDs, err := h.db.GetOrgModeratorIDs(c.Context(), *orgID); err == nil {
+		h.fanOutSubmissionNotifications(c, modIDs, link)
+	}
+
 	return c.Render("partials/form_success", fiber.Map{
 		"Keyword": keyword,
 		"Message": "Organization link submitted for approval. A moderator will review it shortly.",
@@ -598,6 +612,11 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 	// Send email notification to moderators
 	if Notifier != nil {
 		go Notifier.NotifyModeratorsLinkSubmitted(c.Context(), link, user)
+	}
+
+	// Fan out in-app notifications to global moderators
+	if modIDs, err := h.db.GetGlobalModeratorIDs(c.Context()); err == nil {
+		h.fanOutSubmissionNotifications(c, modIDs, link)
 	}
 
 	return c.Render("partials/form_success", fiber.Map{
@@ -826,4 +845,23 @@ func (h *LinkHandler) CheckKeyword(c fiber.Ctx) error {
 	}
 
 	return c.SendString("")
+}
+
+// fanOutSubmissionNotifications creates in-app notifications for a list of moderators.
+func (h *LinkHandler) fanOutSubmissionNotifications(c fiber.Ctx, modIDs []uuid.UUID, link *models.Link) {
+	if len(modIDs) == 0 {
+		return
+	}
+	ns := make([]models.Notification, 0, len(modIDs))
+	for _, id := range modIDs {
+		ns = append(ns, models.Notification{
+			UserID:    id,
+			Type:      models.NotifTypeLinkSubmitted,
+			Title:     "New link pending review",
+			Body:      fmt.Sprintf(`"%s" → %s`, link.Keyword, link.URL),
+			ActionURL: "/moderation",
+			LinkID:    &link.ID,
+		})
+	}
+	_ = h.db.CreateNotifications(c.Context(), ns)
 }

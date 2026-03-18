@@ -301,6 +301,46 @@
             if (closeIcon) closeIcon.classList.toggle('hidden');
         }
 
+        var notifLoaded = false;
+
+        function closeNotifPanel() {
+            var panel = document.getElementById('notif-panel');
+            if (panel) panel.classList.add('hidden');
+            notifLoaded = false;
+        }
+
+        function toggleNotifications(e) {
+            e.stopPropagation();
+            var panel = document.getElementById('notif-panel');
+            if (!panel) return;
+            var isOpen = !panel.classList.contains('hidden');
+            if (isOpen) {
+                closeNotifPanel();
+            } else {
+                panel.classList.remove('hidden');
+                if (!notifLoaded) {
+                    htmx.ajax('GET', '/notifications', {target: '#notif-panel-content', swap: 'innerHTML'});
+                    notifLoaded = true;
+                }
+            }
+        }
+
+        function markNotifRead(id, actionURL) {
+            htmx.ajax('POST', '/notifications/' + id + '/read', {
+                target: '#notif-badge',
+                swap: 'outerHTML'
+            });
+            closeNotifPanel();
+            if (actionURL) window.location.href = actionURL;
+        }
+
+        document.addEventListener('click', function(e) {
+            var container = document.getElementById('notif-container');
+            if (container && !container.contains(e.target)) {
+                closeNotifPanel();
+            }
+        });
+
         function copyGoLink(btn, keyword) {
             var url = window.location.origin + '/go/' + keyword;
             navigator.clipboard.writeText(url).then(function() {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -123,10 +124,25 @@ func (h *ModerationHandler) Approve(c fiber.Ctx) error {
 		return err
 	}
 
+	// Remove pending-review notifications from all moderators' feeds
+	_ = h.db.DeleteNotificationsForLink(c.Context(), link.ID, models.NotifTypeLinkSubmitted)
+
 	// Send email notification to the link creator
 	h.notifier.NotifyUserLinkApproved(c.Context(), link, user)
 
-	// Return success message for HTMX
+	// In-app notification for the submitter
+	if link.SubmittedBy != nil {
+		_ = h.db.CreateNotification(c.Context(), &models.Notification{
+			UserID:    *link.SubmittedBy,
+			Type:      models.NotifTypeLinkApproved,
+			Title:     "Link approved",
+			Body:      fmt.Sprintf(`"%s" is now live`, link.Keyword),
+			ActionURL: "/go/" + link.Keyword,
+			LinkID:    &link.ID,
+		})
+	}
+
+	c.Set("HX-Trigger", "notif-refresh")
 	return c.Render("partials/moderation_success", fiber.Map{
 		"Action":  "approved",
 		"Keyword": link.Keyword,
@@ -167,11 +183,30 @@ func (h *ModerationHandler) Reject(c fiber.Ctx) error {
 		return err
 	}
 
+	// Remove pending-review notifications from all moderators' feeds
+	_ = h.db.DeleteNotificationsForLink(c.Context(), link.ID, models.NotifTypeLinkSubmitted)
+
 	// Send email notification to the link creator
 	reason := c.FormValue("reason") // Optional rejection reason
 	h.notifier.NotifyUserLinkRejected(c.Context(), link, reason)
 
-	// Return success message for HTMX
+	// In-app notification for the submitter
+	if link.SubmittedBy != nil {
+		body := fmt.Sprintf(`"%s" was not approved`, link.Keyword)
+		if reason != "" {
+			body += ": " + reason
+		}
+		_ = h.db.CreateNotification(c.Context(), &models.Notification{
+			UserID:    *link.SubmittedBy,
+			Type:      models.NotifTypeLinkRejected,
+			Title:     "Link rejected",
+			Body:      body,
+			ActionURL: "/manage",
+			LinkID:    &link.ID,
+		})
+	}
+
+	c.Set("HX-Trigger", "notif-refresh")
 	return c.Render("partials/moderation_success", fiber.Map{
 		"Action":  "rejected",
 		"Keyword": link.Keyword,
