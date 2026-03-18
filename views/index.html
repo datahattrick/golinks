@@ -16,6 +16,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </div>
+                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none" id="search-kbd-hint">
+                    <kbd class="hidden sm:flex items-center px-1.5 py-0.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/80 rounded border border-gray-200 dark:border-gray-600 font-mono">/</kbd>
+                </div>
                 <input
                     type="search"
                     name="q"
@@ -26,7 +29,7 @@
                     hx-target="#suggestions"
                     autocomplete="off"
                     autofocus
-                    class="w-full pl-12 pr-5 py-4 text-lg rounded-2xl glass-card border-0 shadow-xl shadow-brand-500/10 focus:ring-2 focus:ring-brand-500 focus:shadow-brand-500/20 outline-none transition-all placeholder:text-gray-500">
+                    class="w-full pl-12 pr-16 py-4 text-lg rounded-2xl glass-card border-0 shadow-xl shadow-brand-500/10 focus:ring-2 focus:ring-brand-500 focus:shadow-brand-500/20 outline-none transition-all placeholder:text-gray-500">
             </div>
         </form>
         <div id="suggestions" class="absolute w-full mt-2 z-50"></div>
@@ -159,6 +162,20 @@
             document.getElementById('suggestions').innerHTML = '';
         }
     });
+
+    // Press '/' to focus search input (hide hint while focused)
+    var searchInput = document.getElementById('search-input');
+    var kbdHint = document.getElementById('search-kbd-hint');
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '/' && document.activeElement !== searchInput && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+    if (searchInput) {
+        searchInput.addEventListener('focus', function() { if (kbdHint) kbdHint.classList.add('hidden'); });
+        searchInput.addEventListener('blur', function() { if (kbdHint) kbdHint.classList.remove('hidden'); });
+    }
 
     // Sparkline renderer for Top Used click graphs
     (function() {
