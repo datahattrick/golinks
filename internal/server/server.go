@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"os"
 	"strings"
@@ -108,7 +109,7 @@ func New(cfg *config.Config) *Server {
 				"User":                     user,
 				"SiteTitle":                cfg.SiteTitle,
 				"SiteTagline":              cfg.SiteTagline,
-				"SiteFooter":               cfg.SiteFooter,
+				"SiteFooter":               template.HTML(cfg.SiteFooter), // nolint:gosec
 				"SiteLogoURL":              cfg.SiteLogoURL,
 				"EnableAnimatedBackground": cfg.EnableAnimatedBackground,
 			})

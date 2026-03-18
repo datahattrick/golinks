@@ -46,7 +46,7 @@
         </div>
 
         <div id="reason-field" class="hidden">
-            <label for="reason" class="block text-sm font-medium mb-2">Reason <span class="text-gray-700 font-normal">(why this link should be added)</span></label>
+            <label for="reason" class="block text-sm font-medium mb-2">Reason <span class="text-red-500">*</span> <span class="text-gray-700 font-normal">(why this link should be added)</span></label>
             <textarea
                 id="reason"
                 name="reason"
@@ -114,27 +114,34 @@
 </div>
 
 <script>
-// Re-check keyword and update button text when scope changes
+function applyScope(radio) {
+    document.getElementById('submit-btn').textContent = radio.dataset.btn;
+
+    // Show/hide org select dropdown for admins
+    const orgSelect = document.getElementById('org-select');
+    if (orgSelect) {
+        orgSelect.classList.toggle('hidden', radio.value !== 'org');
+    }
+
+    // Show reason field and make it required when submission needs approval
+    const reasonField = document.getElementById('reason-field');
+    const reasonTextarea = document.getElementById('reason');
+    if (reasonField && reasonTextarea) {
+        const needsApproval = radio.dataset.btn.startsWith('Submit');
+        reasonField.classList.toggle('hidden', !needsApproval);
+        reasonTextarea.required = needsApproval;
+    }
+}
+
 document.querySelectorAll('.scope-radio').forEach(radio => {
     radio.addEventListener('change', () => {
         const keyword = document.getElementById('keyword');
-        if (keyword.value) {
-            htmx.trigger(keyword, 'blur');
-        }
-        document.getElementById('submit-btn').textContent = radio.dataset.btn;
-
-        // Show/hide org select dropdown for admins
-        const orgSelect = document.getElementById('org-select');
-        if (orgSelect) {
-            orgSelect.classList.toggle('hidden', radio.value !== 'org');
-        }
-
-        // Show reason field when submission requires approval
-        const reasonField = document.getElementById('reason-field');
-        if (reasonField) {
-            const needsApproval = radio.dataset.btn.startsWith('Submit');
-            reasonField.classList.toggle('hidden', !needsApproval);
-        }
+        if (keyword.value) htmx.trigger(keyword, 'blur');
+        applyScope(radio);
     });
 });
+
+// Apply state for whichever scope is checked on page load
+const checkedRadio = document.querySelector('.scope-radio:checked');
+if (checkedRadio) applyScope(checkedRadio);
 </script>

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"html/template"
+
 	"github.com/gofiber/fiber/v3"
 
 	"golinks/internal/config"
@@ -38,7 +40,7 @@ func MergeBranding(data fiber.Map, cfg *config.Config, currentPath ...string) fi
 	branding := GetBrandingData(cfg)
 	data["SiteTitle"] = branding.SiteTitle
 	data["SiteTagline"] = branding.SiteTagline
-	data["SiteFooter"] = branding.SiteFooter
+	data["SiteFooter"] = template.HTML(branding.SiteFooter) // nolint:gosec — operator-configured value
 	data["SiteLogoURL"] = branding.SiteLogoURL
 	data["EnableAnimatedBackground"] = branding.EnableAnimatedBackground
 	data["BannerText"] = branding.BannerText

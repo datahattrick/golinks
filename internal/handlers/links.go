@@ -442,6 +442,9 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 				return err.Error()
 			}
 		} else {
+			if reason == "" {
+				return "a reason is required for org link submissions"
+			}
 			link.SubmittedBy = &user.ID
 			if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 				if errors.Is(err, db.ErrDuplicateKeyword) {
@@ -477,6 +480,9 @@ func (h *LinkHandler) saveLinkForKeyword(c fiber.Ctx, user *models.User, keyword
 				return err.Error()
 			}
 		} else {
+			if reason == "" {
+				return "a reason is required for global link submissions"
+			}
 			link.SubmittedBy = &user.ID
 			if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 				if errors.Is(err, db.ErrDuplicateKeyword) {
@@ -569,7 +575,10 @@ func (h *LinkHandler) createOrgLink(c fiber.Ctx, user *models.User, keyword, url
 		}, "")
 	}
 
-	// Regular users submit for approval
+	// Regular users submit for approval — reason is required
+	if reason == "" {
+		return htmxError(c, "Please provide a reason for this link submission")
+	}
 	link.SubmittedBy = &user.ID
 	if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 		if errors.Is(err, db.ErrDuplicateKeyword) {
@@ -621,7 +630,10 @@ func (h *LinkHandler) createGlobalLink(c fiber.Ctx, user *models.User, keyword, 
 		}, "")
 	}
 
-	// Regular users submit for approval
+	// Regular users submit for approval — reason is required
+	if reason == "" {
+		return htmxError(c, "Please provide a reason for this link submission")
+	}
 	link.SubmittedBy = &user.ID
 	if err := h.db.SubmitLinkForApproval(c.Context(), link); err != nil {
 		if errors.Is(err, db.ErrDuplicateKeyword) {
