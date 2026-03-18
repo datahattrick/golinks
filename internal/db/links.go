@@ -424,30 +424,54 @@ func (d *DB) GetApprovedOrgLinks(ctx context.Context, orgID uuid.UUID) ([]models
 }
 
 // SearchApprovedLinks searches for approved links by keyword, URL, or description.
-// If orgID is provided, includes org-scoped links for that organization.
-func (d *DB) SearchApprovedLinks(ctx context.Context, queryStr string, orgID *uuid.UUID, limit int) ([]models.Link, error) {
-	// Single parameterized query replacing the previous 4-branch approach.
-	// $2::uuid IS NOT NULL controls whether org links are included.
-	// $3 = '' short-circuits the ILIKE filter when no search term is given.
+// scope: "all" = global + org, "global" = global only, "org" = org only (requires orgID).
+// offset enables pagination.
+func (d *DB) SearchApprovedLinks(ctx context.Context, queryStr string, orgID *uuid.UUID, scope string, limit int, offset int) ([]models.Link, error) {
+	if scope == "" {
+		scope = "all"
+	}
 	sql := `
 		SELECT ` + linkColumns + `
 		FROM links
 		WHERE status = $1
-			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
-			AND ($3 = '' OR keyword ILIKE '%' || $3 || '%' OR url ILIKE '%' || $3 || '%' OR description ILIKE '%' || $3 || '%')
+			AND (
+				(scope = 'global' AND ($2 = 'all' OR $2 = 'global'))
+				OR (scope = 'org' AND $3::uuid IS NOT NULL AND organization_id = $3 AND ($2 = 'all' OR $2 = 'org'))
+			)
+			AND ($4 = '' OR keyword ILIKE '%' || $4 || '%' OR url ILIKE '%' || $4 || '%' OR description ILIKE '%' || $4 || '%')
 		ORDER BY click_count DESC, keyword ASC
-		LIMIT $4
+		LIMIT $5 OFFSET $6
 	`
-	rows, err := d.Pool.Query(ctx, sql, models.StatusApproved, orgID, strings.TrimSpace(queryStr), limit)
+	rows, err := d.Pool.Query(ctx, sql, models.StatusApproved, scope, orgID, strings.TrimSpace(queryStr), limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	return scanLinks(rows)
 }
 
+// CountApprovedLinks returns the total number of approved links matching the given filters.
+func (d *DB) CountApprovedLinks(ctx context.Context, queryStr string, orgID *uuid.UUID, scope string) (int, error) {
+	if scope == "" {
+		scope = "all"
+	}
+	sql := `
+		SELECT COUNT(*)
+		FROM links
+		WHERE status = $1
+			AND (
+				(scope = 'global' AND ($2 = 'all' OR $2 = 'global'))
+				OR (scope = 'org' AND $3::uuid IS NOT NULL AND organization_id = $3 AND ($2 = 'all' OR $2 = 'org'))
+			)
+			AND ($4 = '' OR keyword ILIKE '%' || $4 || '%' OR url ILIKE '%' || $4 || '%' OR description ILIKE '%' || $4 || '%')
+	`
+	var count int
+	err := d.Pool.QueryRow(ctx, sql, models.StatusApproved, scope, orgID, strings.TrimSpace(queryStr)).Scan(&count)
+	return count, err
+}
+
 // SearchLinks is kept for backwards compatibility - searches approved global links.
 func (d *DB) SearchLinks(ctx context.Context, query string, limit int) ([]models.Link, error) {
-	return d.SearchApprovedLinks(ctx, query, nil, limit)
+	return d.SearchApprovedLinks(ctx, query, nil, "all", limit, 0)
 }
 
 // SearchLinksForUser searches approved links plus the user's personal links.
@@ -589,15 +613,19 @@ func (d *DB) UpdateLinkHealthStatus(ctx context.Context, linkID uuid.UUID, statu
 	return nil
 }
 
-// GetLinksForManagement retrieves links for the management page based on user role and filter.
+// GetLinksForManagement retrieves links for the management page based on user role and filters.
+// healthFilter: "all"|"healthy"|"unhealthy"|"unknown"
+// scope: "all"|"global"|"org"
 // For moderators/admins, includes author info via JOIN.
-func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healthFilter string, limit int) ([]models.Link, error) {
+func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string, limit int, offset int) ([]models.Link, error) {
+	if scope == "" {
+		scope = "all"
+	}
 	var sql string
 	var args []any
 
 	// Build the base query based on user role
 	if user.IsGlobalMod() {
-		// Global mods and admins can see all approved + deletion_requested links
 		sql = `
 			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
 				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
@@ -609,7 +637,6 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 		`
 		args = []any{models.StatusApproved, models.StatusDeletionRequested}
 	} else if user.IsOrgMod() && user.OrganizationID != nil {
-		// Org mods can only see their org's links
 		sql = `
 			SELECT l.id, l.keyword, l.url, l.description, l.scope, l.organization_id, l.status,
 				l.created_by, l.submitted_by, l.reviewed_by, l.reviewed_at, l.reason, l.click_count,
@@ -621,25 +648,61 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 		`
 		args = []any{models.StatusApproved, models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
 	} else {
-		// Regular users see only their own authored links
-		return d.GetAuthoredLinksForUser(ctx, user.ID, healthFilter, limit)
+		return d.GetAuthoredLinksForUser(ctx, user.ID, healthFilter, scope, limit, offset)
 	}
 
-	// Apply health filter
+	// Scope filter (only meaningful for global mods who can see all scopes)
+	if scope != "all" {
+		sql += ` AND l.scope = $` + strconv.Itoa(len(args)+1)
+		args = append(args, scope)
+	}
+
+	// Health filter
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND l.health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
 	}
 
-	// Order and limit
-	sql += ` ORDER BY l.keyword ASC LIMIT $` + strconv.Itoa(len(args)+1)
-	args = append(args, limit)
+	sql += ` ORDER BY l.keyword ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+	args = append(args, limit, offset)
 
 	rows, err := d.Pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
 	return scanLinksWithAuthor(rows)
+}
+
+// CountLinksForManagement returns the total count matching the same filters as GetLinksForManagement.
+func (d *DB) CountLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string) (int, error) {
+	if scope == "" {
+		scope = "all"
+	}
+	var sql string
+	var args []any
+
+	if user.IsGlobalMod() {
+		sql = `SELECT COUNT(*) FROM links l WHERE l.status IN ($1, $2)`
+		args = []any{models.StatusApproved, models.StatusDeletionRequested}
+	} else if user.IsOrgMod() && user.OrganizationID != nil {
+		sql = `SELECT COUNT(*) FROM links l WHERE l.status IN ($1, $2) AND l.scope = $3 AND l.organization_id = $4`
+		args = []any{models.StatusApproved, models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
+	} else {
+		return d.countAuthoredLinksForUser(ctx, user.ID, healthFilter, scope)
+	}
+
+	if scope != "all" {
+		sql += ` AND l.scope = $` + strconv.Itoa(len(args)+1)
+		args = append(args, scope)
+	}
+	if healthFilter != "" && healthFilter != "all" {
+		sql += ` AND l.health_status = $` + strconv.Itoa(len(args)+1)
+		args = append(args, healthFilter)
+	}
+
+	var count int
+	err := d.Pool.QueryRow(ctx, sql, args...).Scan(&count)
+	return count, err
 }
 
 // scanLinksWithAuthor scans link rows that include author name and email columns.
@@ -680,7 +743,10 @@ func scanLinksWithAuthor(rows pgx.Rows) ([]models.Link, error) {
 }
 
 // GetAuthoredLinksForUser returns links where the user is the author.
-func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, limit int) ([]models.Link, error) {
+func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string, limit int, offset int) ([]models.Link, error) {
+	if scope == "" {
+		scope = "all"
+	}
 	sql := `
 		SELECT ` + linkColumns + `
 		FROM links
@@ -688,19 +754,44 @@ func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, heal
 	`
 	args := []any{userID, models.StatusPending, models.StatusDeletionRequested}
 
+	if scope != "all" {
+		sql += ` AND scope = $` + strconv.Itoa(len(args)+1)
+		args = append(args, scope)
+	}
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
 	}
 
-	sql += ` ORDER BY keyword ASC LIMIT $` + strconv.Itoa(len(args)+1)
-	args = append(args, limit)
+	sql += ` ORDER BY keyword ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+	args = append(args, limit, offset)
 
 	rows, err := d.Pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
 	return scanLinks(rows)
+}
+
+func (d *DB) countAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string) (int, error) {
+	sql := `
+		SELECT COUNT(*) FROM links
+		WHERE (created_by = $1 OR (submitted_by = $1 AND status IN ($2, $3)))
+	`
+	args := []any{userID, models.StatusPending, models.StatusDeletionRequested}
+
+	if scope != "all" {
+		sql += ` AND scope = $` + strconv.Itoa(len(args)+1)
+		args = append(args, scope)
+	}
+	if healthFilter != "" && healthFilter != "all" {
+		sql += ` AND health_status = $` + strconv.Itoa(len(args)+1)
+		args = append(args, healthFilter)
+	}
+
+	var count int
+	err := d.Pool.QueryRow(ctx, sql, args...).Scan(&count)
+	return count, err
 }
 
 // RequestLinkDeletion sets a link's status to deletion_requested.

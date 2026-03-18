@@ -1,3 +1,64 @@
+{{/* Hidden state — picked up by buttons in this partial and by the search input via hx-include */}}
+<input type="hidden" name="q" value="{{.Query}}">
+<input type="hidden" name="scope" value="{{.ScopeFilter}}">
+<input type="hidden" name="per_page" value="{{.Pagination.PerPage}}">
+
+{{/* Scope filter buttons */}}
+<div class="flex items-center gap-2 mb-4 flex-wrap">
+    <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Filter:</span>
+    <button
+        hx-get="/browse?scope=all&per_page={{.Pagination.PerPage}}&page=1"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-3 py-1.5 text-sm rounded-lg transition-all font-medium {{if eq .ScopeFilter "all"}}bg-gradient-to-r from-brand-500 to-teal-500 text-white shadow-md{{else}}glass-card hover:shadow-md{{end}}">
+        All
+    </button>
+    <button
+        hx-get="/browse?scope=global&per_page={{.Pagination.PerPage}}&page=1"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-3 py-1.5 text-sm rounded-lg transition-all font-medium {{if eq .ScopeFilter "global"}}bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md{{else}}glass-card hover:shadow-md{{end}}">
+        <span class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+            </svg>
+            Global
+        </span>
+    </button>
+    {{if and .EnableOrgLinks .User.OrganizationID}}
+    <button
+        hx-get="/browse?scope=org&per_page={{.Pagination.PerPage}}&page=1"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-3 py-1.5 text-sm rounded-lg transition-all font-medium {{if eq .ScopeFilter "org"}}bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md{{else}}glass-card hover:shadow-md{{end}}">
+        <span class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            My Org
+        </span>
+    </button>
+    {{end}}
+
+    {{/* Per-page selector */}}
+    <div class="ml-auto flex items-center gap-1.5">
+        <span class="text-xs text-gray-500 dark:text-gray-400">Per page:</span>
+        <button hx-get="/browse?per_page=20&page=1" hx-include="#browse-search-input, #links-list input[name=scope]" hx-target="#links-list"
+            class="px-2.5 py-1 text-xs rounded-lg transition-all font-medium {{if eq .Pagination.PerPage 20}}bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-semibold{{else}}glass-card hover:shadow-sm text-gray-600 dark:text-gray-400{{end}}">20</button>
+        <button hx-get="/browse?per_page=30&page=1" hx-include="#browse-search-input, #links-list input[name=scope]" hx-target="#links-list"
+            class="px-2.5 py-1 text-xs rounded-lg transition-all font-medium {{if eq .Pagination.PerPage 30}}bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-semibold{{else}}glass-card hover:shadow-sm text-gray-600 dark:text-gray-400{{end}}">30</button>
+        <button hx-get="/browse?per_page=50&page=1" hx-include="#browse-search-input, #links-list input[name=scope]" hx-target="#links-list"
+            class="px-2.5 py-1 text-xs rounded-lg transition-all font-medium {{if eq .Pagination.PerPage 50}}bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-semibold{{else}}glass-card hover:shadow-sm text-gray-600 dark:text-gray-400{{end}}">50</button>
+    </div>
+</div>
+
+{{/* Result count */}}
+{{if .Pagination.Total}}
+<p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+    Showing {{.Pagination.From}}–{{.Pagination.To}} of {{.Pagination.Total}} links
+</p>
+{{end}}
+
 {{range .Links}}
 <div id="link-{{.ID}}" class="glass-card rounded-xl p-4 hover:shadow-lg hover:shadow-brand-500/10 transition-all group">
     <div class="flex items-start justify-between">
@@ -43,6 +104,14 @@
                 </svg>
             </button>
             {{end}}
+            <button
+                onclick="copyGoLink(this, '{{.Keyword}}')"
+                title="Copy link"
+                class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </button>
             <span class="text-sm font-mono text-gray-800 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{{.ClickCount}} clicks</span>
         </div>
     </div>
@@ -59,5 +128,38 @@
         </svg>
         {{if $.Query}}Create a link for "{{$.Query}}"{{else}}Create the first one{{end}}
     </a>
+</div>
+{{end}}
+
+{{/* Pagination */}}
+{{if gt .Pagination.TotalPages 1}}
+<div class="flex items-center justify-center gap-2 mt-6">
+    {{if .Pagination.HasPrev}}
+    <button
+        hx-get="/browse?scope={{.ScopeFilter}}&per_page={{.Pagination.PerPage}}&page={{.Pagination.PrevPage}}"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-4 py-2 text-sm rounded-lg glass-card hover:shadow-md transition-all font-medium flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Prev
+    </button>
+    {{end}}
+    <span class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
+        Page {{.Pagination.Page}} of {{.Pagination.TotalPages}}
+    </span>
+    {{if .Pagination.HasNext}}
+    <button
+        hx-get="/browse?scope={{.ScopeFilter}}&per_page={{.Pagination.PerPage}}&page={{.Pagination.NextPage}}"
+        hx-include="#browse-search-input"
+        hx-target="#links-list"
+        class="px-4 py-2 text-sm rounded-lg glass-card hover:shadow-md transition-all font-medium flex items-center gap-1.5">
+        Next
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+    </button>
+    {{end}}
 </div>
 {{end}}

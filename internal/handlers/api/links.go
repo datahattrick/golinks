@@ -37,7 +37,7 @@ func (h *LinkHandler) List(c fiber.Ctx) error {
 	}
 
 	query := c.Query("q", "")
-	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, 100)
+	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, "all", 100, 0)
 	if err != nil {
 		return jsonError(c, fiber.StatusInternalServerError, "failed to fetch links")
 	}

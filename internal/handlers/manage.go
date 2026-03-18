@@ -51,7 +51,7 @@ func (h *ManageHandler) buildOrgMaps(ctx context.Context) (map[string]string, ma
 	return orgNames, orgColors
 }
 
-// Index renders the management page.
+// Index renders the management page with pagination and filters.
 func (h *ManageHandler) Index(c fiber.Ctx) error {
 	user, ok := c.Locals("user").(*models.User)
 	if !ok {
@@ -59,16 +59,26 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 	}
 
 	filter := c.Query("filter", "all")
+	scope := c.Query("scope", "all")
+	if scope != "global" && scope != "org" {
+		scope = "all"
+	}
 	isModerator := user.IsOrgMod()
 
-	links, err := h.db.GetLinksForManagement(c.Context(), user, filter, 100)
+	page, perPage := parsePagination(c)
+	offset := (page - 1) * perPage
+
+	links, err := h.db.GetLinksForManagement(c.Context(), user, filter, scope, perPage, offset)
+	if err != nil {
+		return err
+	}
+	total, err := h.db.CountLinksForManagement(c.Context(), user, filter, scope)
 	if err != nil {
 		return err
 	}
 
 	orgNames, orgColors := h.buildOrgMaps(c.Context())
 
-	// Collect link IDs and check which have pending edit requests
 	linkIDs := make([]uuid.UUID, len(links))
 	for i, l := range links {
 		linkIDs[i] = l.ID
@@ -81,14 +91,15 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 	data := fiber.Map{
 		"Links":        links,
 		"Filter":       filter,
+		"Scope":        scope,
 		"User":         user,
 		"OrgNames":     orgNames,
 		"OrgColors":    orgColors,
 		"IsModerator":  isModerator,
 		"PendingEdits": pendingEdits,
+		"Pagination":   buildPagination(page, perPage, total),
 	}
 
-	// Check if this is an HTMX request
 	if c.Get("HX-Request") == "true" {
 		return c.Render("partials/manage_links_list", data, "")
 	}

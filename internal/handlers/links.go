@@ -105,7 +105,7 @@ func (h *LinkHandler) Search(c fiber.Ctx) error {
 	if user != nil && h.cfg.EnablePersonalLinks {
 		links, err = h.db.SearchLinksForUser(c.Context(), query, user.ID, orgID, 50)
 	} else {
-		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, 50)
+		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, "all", 50, 0)
 	}
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func (h *LinkHandler) Suggest(c fiber.Ctx) error {
 	if user != nil && h.cfg.EnablePersonalLinks {
 		links, err = h.db.SearchLinksForUser(c.Context(), query, user.ID, orgID, 5)
 	} else {
-		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, 5)
+		links, err = h.db.SearchApprovedLinks(c.Context(), query, orgID, "all", 5, 0)
 	}
 	if err != nil {
 		return err
@@ -156,9 +156,16 @@ func (h *LinkHandler) Suggest(c fiber.Ctx) error {
 	}, "")
 }
 
-// Browse renders the browse all links page.
+// Browse renders the browse all links page with pagination and scope filtering.
 func (h *LinkHandler) Browse(c fiber.Ctx) error {
 	query := c.Query("q", "")
+	scope := c.Query("scope", "all")
+	if scope != "global" && scope != "org" {
+		scope = "all"
+	}
+
+	page, perPage := parsePagination(c)
+
 	user, _ := c.Locals("user").(*models.User)
 
 	var orgID *uuid.UUID
@@ -166,12 +173,21 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 		orgID = user.OrganizationID
 	}
 
-	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, 100)
+	// Org filter only makes sense when the user has an org
+	if scope == "org" && orgID == nil {
+		scope = "all"
+	}
+
+	offset := (page - 1) * perPage
+	links, err := h.db.SearchApprovedLinks(c.Context(), query, orgID, scope, perPage, offset)
+	if err != nil {
+		return err
+	}
+	total, err := h.db.CountApprovedLinks(c.Context(), query, orgID, scope)
 	if err != nil {
 		return err
 	}
 
-	// Build org name map for displaying org names on links
 	orgNames := make(map[string]string)
 	if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
 		for _, org := range orgs {
@@ -179,20 +195,22 @@ func (h *LinkHandler) Browse(c fiber.Ctx) error {
 		}
 	}
 
-	// If HTMX request, return just the list
-	if c.Get("HX-Request") == "true" {
-		return c.Render("partials/links_list", fiber.Map{
-			"Links":    links,
-			"User":     user,
-			"OrgNames": orgNames,
-		}, "")
+	pag := buildPagination(page, perPage, total)
+	data := fiber.Map{
+		"Links":         links,
+		"User":          user,
+		"OrgNames":      orgNames,
+		"Query":         query,
+		"ScopeFilter":   scope,
+		"EnableOrgLinks": h.cfg.EnableOrgLinks,
+		"Pagination":    pag,
 	}
 
-	return c.Render("browse", MergeBranding(fiber.Map{
-		"Links":    links,
-		"User":     user,
-		"OrgNames": orgNames,
-	}, h.cfg, c.Path()))
+	if c.Get("HX-Request") == "true" {
+		return c.Render("partials/links_list", data, "")
+	}
+
+	return c.Render("browse", MergeBranding(data, h.cfg, c.Path()))
 }
 
 // New renders the create link form.

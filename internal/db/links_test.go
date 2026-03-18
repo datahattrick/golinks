@@ -347,7 +347,7 @@ func TestSearchApprovedLinks(t *testing.T) {
 	}
 
 	// Search for "go"
-	results, err := db.SearchApprovedLinks(ctx, "go", nil, 10)
+	results, err := db.SearchApprovedLinks(ctx, "go", nil, "all", 10, 0)
 	if err != nil {
 		t.Fatalf("SearchApprovedLinks() error = %v", err)
 	}
@@ -356,7 +356,7 @@ func TestSearchApprovedLinks(t *testing.T) {
 	}
 
 	// Search with empty query returns all
-	all, err := db.SearchApprovedLinks(ctx, "", nil, 10)
+	all, err := db.SearchApprovedLinks(ctx, "", nil, "all", 10, 0)
 	if err != nil {
 		t.Fatalf("SearchApprovedLinks('') error = %v", err)
 	}

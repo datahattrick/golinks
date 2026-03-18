@@ -18,6 +18,10 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	// Initialize Prometheus metrics collector
 	metrics.Init(database)
 
+	// Unfurl middleware - intercepts link-preview bots before auth runs.
+	// Must be registered before any RequireAuth route so bots never reach OIDC.
+	s.App.Use(middleware.UnfurlMiddleware(database, s.Cfg))
+
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(database, s.Cfg)
 

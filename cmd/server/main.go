@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -40,10 +41,12 @@ func main() {
 		"log_level", cfg.LogLevel,
 	)
 
-	// Initialize database
-	database, err := db.New(ctx, cfg.DatabaseURL)
+	// Wait for the database to become available before proceeding.
+	// This handles the common Kubernetes race where the app pod starts before
+	// the database pod is ready to accept connections.
+	database, err := waitForDB(ctx, cfg.DatabaseURL, 60*time.Second)
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
+		slog.Error("database never became available", "error", err)
 		os.Exit(1)
 	}
 	defer database.Close()
@@ -115,6 +118,34 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server exited")
+}
+
+// waitForDB retries connecting to the database until it succeeds or the timeout
+// elapses. It logs each failed attempt so progress is visible in pod logs.
+func waitForDB(ctx context.Context, connString string, timeout time.Duration) (*db.DB, error) {
+	deadline := time.Now().Add(timeout)
+	attempt := 0
+	for {
+		attempt++
+		database, err := db.New(ctx, connString)
+		if err == nil {
+			if attempt > 1 {
+				slog.Info("database connection established", "attempt", attempt)
+			}
+			return database, nil
+		}
+
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("timed out after %s waiting for database: %w", timeout, err)
+		}
+
+		slog.Warn("database not ready, retrying in 5s", "attempt", attempt, "error", err)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(5 * time.Second):
+		}
+	}
 }
 
 // initLogger configures the default slog logger with the given level.

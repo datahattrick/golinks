@@ -19,12 +19,14 @@
             </svg>
         </div>
         <input
+            id="browse-search-input"
             type="search"
             placeholder="Filter links..."
             hx-get="/browse"
             hx-trigger="input changed delay:300ms"
             hx-target="#links-list"
-            hx-include="this"
+            hx-include="this, #links-list input[name=scope], #links-list input[name=per_page]"
+            hx-vals='{"page":"1"}'
             name="q"
             class="w-full pl-12 pr-4 py-3 rounded-xl glass-card border-0 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
     </div>
