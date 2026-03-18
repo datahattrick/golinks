@@ -76,6 +76,7 @@ func New(cfg *config.Config) *Server {
 			renderErr := c.Status(code).Render("error", fiber.Map{
 				"Title":                    "Error",
 				"Message":                  message,
+				"StatusCode":               code,
 				"User":                     user,
 				"SiteTitle":                cfg.SiteTitle,
 				"SiteTagline":              cfg.SiteTagline,

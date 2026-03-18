@@ -505,6 +505,40 @@ func (d *DB) SearchLinksForUser(ctx context.Context, queryStr string, userID uui
 	return scanLinks(rows)
 }
 
+// SearchPersonalLinks searches a user's personal links, returning them as models.Link.
+func (d *DB) SearchPersonalLinks(ctx context.Context, userID uuid.UUID, queryStr string, limit int, offset int) ([]models.Link, error) {
+	sql := `
+		SELECT id, keyword, url, description, 'personal' AS scope, NULL::uuid AS organization_id,
+			'approved' AS status, NULL::uuid AS created_by, NULL::uuid AS submitted_by,
+			NULL::uuid AS reviewed_by, NULL::timestamp AS reviewed_at,
+			'' AS reason, click_count, created_at, updated_at,
+			health_status, health_checked_at, health_error
+		FROM user_links
+		WHERE user_id = $1
+			AND ($2 = '' OR keyword ILIKE '%' || $2 || '%' OR url ILIKE '%' || $2 || '%' OR description ILIKE '%' || $2 || '%')
+		ORDER BY click_count DESC, keyword ASC
+		LIMIT $3 OFFSET $4
+	`
+	rows, err := d.Pool.Query(ctx, sql, userID, strings.TrimSpace(queryStr), limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return scanLinks(rows)
+}
+
+// CountPersonalLinks returns the total number of personal links for a user matching the query.
+func (d *DB) CountPersonalLinks(ctx context.Context, userID uuid.UUID, queryStr string) (int, error) {
+	sql := `
+		SELECT COUNT(*)
+		FROM user_links
+		WHERE user_id = $1
+			AND ($2 = '' OR keyword ILIKE '%' || $2 || '%' OR url ILIKE '%' || $2 || '%' OR description ILIKE '%' || $2 || '%')
+	`
+	var count int
+	err := d.Pool.QueryRow(ctx, sql, userID, strings.TrimSpace(queryStr)).Scan(&count)
+	return count, err
+}
+
 // GetLinksByUser retrieves all links created/submitted by a specific user.
 func (d *DB) GetLinksByUser(ctx context.Context, userID uuid.UUID) ([]models.Link, error) {
 	query := `

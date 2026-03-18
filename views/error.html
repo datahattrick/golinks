@@ -1,7 +1,20 @@
 <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
-    <h1 class="text-4xl font-bold mb-4">{{.Title}}</h1>
-    <p class="text-gray-700 dark:text-gray-400 mb-8">{{.Message}}</p>
-    <a href="/" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
-        Go Home
-    </a>
+    {{if .StatusCode}}
+    <p class="text-8xl font-bold text-gray-200 dark:text-gray-800 mb-2 select-none">{{.StatusCode}}</p>
+    {{end}}
+    <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+        <svg class="w-7 h-7 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+    </div>
+    <h1 class="text-2xl font-bold mb-2">{{.Title}}</h1>
+    <p class="text-gray-700 dark:text-gray-400 mb-8 max-w-sm">{{.Message}}</p>
+    <div class="flex items-center gap-3">
+        <button onclick="history.back()" class="px-4 py-2 rounded-lg glass-card hover:shadow-md font-medium text-sm transition-all">
+            Go Back
+        </button>
+        <a href="/" class="px-4 py-2 rounded-lg bg-gradient-to-r from-brand-500 to-teal-500 text-white font-medium text-sm hover:from-brand-600 hover:to-teal-600 transition-all shadow-md">
+            Go Home
+        </a>
+    </div>
 </div>
