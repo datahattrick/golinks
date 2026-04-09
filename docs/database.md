@@ -89,29 +89,6 @@ Unique constraint on `(link_id, hour_bucket)`. Powers the 24-hour sparkline grap
 
 Constraints: `no_self_share` CHECK prevents sender = recipient. `unique_pending_share` UNIQUE on (sender_id, recipient_id, keyword) prevents duplicate offers. Indexes on `sender_id` and `recipient_id`.
 
-### `groups`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `name` | TEXT | Group name |
-| `slug` | TEXT | URL-friendly identifier |
-| `parent_id` | UUID | Parent group FK |
-| `created_at` | TIMESTAMPTZ | Creation timestamp |
-| `updated_at` | TIMESTAMPTZ | Last update |
-
-### `user_group_memberships`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `user_id` | UUID | FK → users |
-| `group_id` | UUID | FK → groups |
-| `is_primary` | BOOLEAN | Primary group flag |
-| `role` | TEXT | Role within group |
-| `created_at` | TIMESTAMPTZ | Creation timestamp |
-| `updated_at` | TIMESTAMPTZ | Last update |
-
 ## Migrations
 
 | # | Name | Description |
@@ -121,8 +98,23 @@ Constraints: `no_self_share` CHECK prevents sender = recipient. `unique_pending_
 | 003 | `add_username_and_user_links` | Username field and personal links |
 | 004 | `add_roles_and_orgs` | Role-based access and organizations |
 | 005 | `add_health_check_fields` | URL health monitoring columns |
-| 006 | `add_groups_and_tiers` | Hierarchical group structure |
+| 006 | `add_groups_and_tiers` | Hierarchical group structure (later removed) |
 | 007 | `add_org_fallback_url` | Per-org fallback redirects |
 | 008 | `fix_keyword_unique_constraint` | Allow org keywords to shadow global |
 | 009 | `add_click_history` | Hourly click buckets for sparklines |
+| 010 | `add_oidc_mapped_role` | Intermediate OIDC group role column |
 | 011 | `add_shared_links` | Personal link sharing between users |
+| 012 | `add_authorship_and_requests` | Submission reason + link edit requests |
+| 013 | `add_keyword_lookups` | Keyword resolution outcome tracking |
+| 014 | `add_fallback_redirects` | Named per-org fallback redirect options |
+| 015 | `remove_groups_and_tiers` | Drop unused group/tier tables |
+| 016 | `add_notifications` | In-app notification bell |
+| 017 | `indexes_and_autovacuum` | Composite indexes + aggressive autovacuum on hot tables |
+
+## Write Buffer
+
+Click counts (`links.click_count`, `user_links.click_count`, `click_history`) and keyword lookup counts (`keyword_lookups`) are **not** written to the database on every request. Instead, increments are accumulated in an in-memory buffer and flushed to PostgreSQL in a single batch every 5 seconds.
+
+This eliminates per-request WAL writes for counters that don't need real-time accuracy. On graceful shutdown, the buffer is flushed before the database connection is closed so no counts are lost.
+
+The flush interval is fixed at 5 seconds. Click counts may lag by up to that amount, which is imperceptible in practice.

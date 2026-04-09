@@ -11,7 +11,7 @@ All settings are configured via environment variables. Copy `.env.example` to `.
 | `BASE_URL` | Public base URL for redirects | `http://localhost:3000` | No |
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://localhost:5432/golinks` | Yes |
 | `SESSION_SECRET` | Cookie signing secret (min 32 chars) | - | Yes (production) |
-| `SESSION_STORE` | Session storage backend: `memory` or `postgres` | `memory` | No |
+| `SESSION_STORE` | Session storage backend: `memory` or `redis` | `memory` | No |
 
 ## OIDC Authentication
 
@@ -143,11 +143,61 @@ Set `LOG_LEVEL=debug` to see detailed startup diagnostics and middleware registr
 
 By default, sessions are stored in-memory. This works for single-instance deployments but sessions are lost on restart and cannot be shared across multiple pods.
 
-For multi-instance deployments (Kubernetes, etc.), set `SESSION_STORE=postgres` to store sessions in PostgreSQL. This uses the same `DATABASE_URL` connection and automatically creates a `fiber_sessions` table. Expired sessions are garbage-collected every 10 minutes.
+For multi-instance deployments, set `SESSION_STORE=redis` to store sessions in a Redis-compatible store (Redis, Dragonfly, Valkey, etc.). Sessions expire automatically via Redis TTLs — no GC queries or WAL writes against PostgreSQL.
 
 ```bash
-SESSION_STORE=postgres
+SESSION_STORE=redis
+REDIS_URL=redis://localhost:6379
 ```
+
+### Redis / Dragonfly Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
+| `REDIS_USERNAME` | Redis ACL username (optional) | (none) |
+| `REDIS_PASSWORD` | Redis password (optional) | (none) |
+
+When `REDIS_PASSWORD` is set, the password is embedded into the connection URL automatically — no need to include credentials in `REDIS_URL`.
+
+**TLS:** Use `rediss://` scheme for TLS-encrypted connections:
+```bash
+REDIS_URL=rediss://dragonfly.internal:6380
+```
+
+**Dragonfly** (recommended — Redis-compatible, lower memory, faster):
+```bash
+SESSION_STORE=redis
+REDIS_URL=redis://dragonfly:6379
+REDIS_PASSWORD=your-password   # if authentication is enabled
+```
+
+The Helm chart includes a bundled Dragonfly CRD (requires the [DragonflyDB operator](https://github.com/dragonflydb/dragonfly-operator)):
+```yaml
+dragonfly:
+  enabled: true
+  replicas: 1
+  passwordSecret:
+    enabled: true
+    existingSecret: golinks-redis-secret
+    existingSecretKey: REDIS_PASSWORD
+
+config:
+  sessionStore: "redis"
+
+redis:
+  existingSecret: golinks-redis-secret
+  existingSecretPasswordKey: REDIS_PASSWORD
+```
+
+## Database Pool
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_POOL_MAX_CONNS` | Maximum number of database connections | `10` |
+| `DB_POOL_MIN_CONNS` | Minimum number of idle connections to maintain | `2` |
+
+The pool also enforces a 30-minute maximum connection lifetime and 5-minute idle timeout to rotate connections and release resources under low load.
 
 ## Redirect Fallbacks
 

@@ -6,6 +6,7 @@
 |-------------|---------|-------|
 | Go | 1.22+ | For building from source |
 | PostgreSQL | 14+ | Database backend |
+| Redis / Dragonfly | Redis 6+ / any | Session store (for multi-pod) |
 | Docker | 20.10+ | For containerized deployment |
 | Docker Compose | 2.0+ | For local development |
 
@@ -37,7 +38,8 @@ docker run -d \
   -e OIDC_CLIENT_ID="your-client-id" \
   -e OIDC_CLIENT_SECRET="your-client-secret" \
   -e SESSION_SECRET="your-32-char-secret-here" \
-  -e SESSION_STORE="postgres" \
+  -e SESSION_STORE="redis" \
+  -e REDIS_URL="redis://your-redis-host:6379" \
   -e LOG_LEVEL="info" \
   qskhattrick/golinks:latest
 ```
@@ -81,14 +83,31 @@ kubectl create secret generic golinks-secret \
   --from-literal=DATABASE_URL=postgres://user:pass@host:5432/golinks \
   --from-literal=SMTP_PASSWORD=your-smtp-password
 
-# Install chart
+# Install chart (external Redis)
 helm install golinks ./chart/golinks \
   --set existingSecret=golinks-secret \
+  --set config.sessionStore=redis \
+  --set redis.url=redis://your-redis-host:6379 \
   --set route.host=go.example.com \
   --set oidc.issuer=https://accounts.google.com \
   --set oidc.clientId=your-client-id \
   --set image.repository=qskhattrick/golinks \
   --set image.tag=v1.0.0
+
+# With bundled Dragonfly (requires DragonflyDB operator)
+kubectl create secret generic golinks-redis-secret \
+  --from-literal=REDIS_PASSWORD=$(openssl rand -base64 24)
+
+helm install golinks ./chart/golinks \
+  --set existingSecret=golinks-secret \
+  --set config.sessionStore=redis \
+  --set dragonfly.enabled=true \
+  --set dragonfly.passwordSecret.enabled=true \
+  --set dragonfly.passwordSecret.existingSecret=golinks-redis-secret \
+  --set redis.existingSecret=golinks-redis-secret \
+  --set route.host=go.example.com \
+  --set oidc.issuer=https://accounts.google.com \
+  --set oidc.clientId=your-client-id
 
 # With SMTP notifications
 helm install golinks ./chart/golinks \
@@ -148,7 +167,9 @@ spec:
                   name: golinks-secrets
                   key: session-secret
             - name: SESSION_STORE
-              value: "postgres"
+              value: "redis"
+            - name: REDIS_URL
+              value: "redis://your-redis-host:6379"
             - name: OIDC_ISSUER
               value: "https://accounts.google.com"
             - name: OIDC_CLIENT_ID

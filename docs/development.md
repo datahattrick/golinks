@@ -11,12 +11,12 @@ golinks/
 │   │   └── config.go        # Configuration struct and loader
 │   ├── db/                  # Database layer (pgx v5 pool)
 │   │   ├── db.go            # Connection pool + migration runner
+│   │   ├── write_buffer.go  # In-memory click/lookup counter buffer (flushes every 5 s)
 │   │   ├── links.go         # Link CRUD + GetSimilarKeywords (pg_trgm)
 │   │   ├── users.go         # User CRUD operations
 │   │   ├── organizations.go # Organization operations
 │   │   ├── fallback_redirects.go # Fallback redirect CRUD per org
-│   │   ├── keyword_lookups.go # Keyword lookup outcome tracking
-│   │   └── groups.go        # Group/tier operations
+│   │   └── keyword_lookups.go # Keyword lookup outcome tracking
 │   ├── handlers/            # HTTP handlers (HTMX UI)
 │   │   ├── auth.go          # OIDC flow (login/callback/logout)
 │   │   ├── links.go         # Link management + sparklines
@@ -84,6 +84,7 @@ golinks/
 | Backend | Go, Fiber v3, pgx v5 |
 | Frontend | HTMX, Tailwind CSS v3 (build-time CLI) |
 | Database | PostgreSQL with trigram search |
+| Session store | Redis / [Dragonfly](https://www.dragonflydb.io/) (Redis-compatible) |
 | Authentication | OpenID Connect (go-oidc v3) |
 | Migrations | golang-migrate with embedded SQL |
 | Dev Auth | [mock-oauth2-server](https://github.com/navikt/mock-oauth2-server) |
@@ -109,7 +110,7 @@ make db-down          # Stop PostgreSQL
 make db-shell         # Connect to PostgreSQL
 
 # Docker
-make services-up      # PostgreSQL + OIDC only
+make services-up      # PostgreSQL + Dragonfly + OIDC
 make docker-up        # Full stack in containers
 make docker-down      # Stop and clean up
 

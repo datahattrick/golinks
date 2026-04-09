@@ -55,13 +55,18 @@ lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill
 
 If users are redirected back to login after authenticating, sessions may not be shared across pods. The default in-memory session store is per-process.
 
-Set `SESSION_STORE=postgres` to store sessions in PostgreSQL, shared across all pods:
+Set `SESSION_STORE=redis` and point `REDIS_URL` at a shared Redis or Dragonfly instance:
 
 ```bash
-SESSION_STORE=postgres
+SESSION_STORE=redis
+REDIS_URL=redis://your-redis-host:6379
+# Optional auth:
+REDIS_PASSWORD=your-password
 ```
 
-This uses the same `DATABASE_URL` and auto-creates a `fiber_sessions` table.
+Sessions are stored with a TTL and expire automatically — no garbage collection queries against PostgreSQL.
+
+> **Note:** Do not use `SESSION_STORE=postgres`. That option has been removed. PostgreSQL session storage caused WAL write amplification due to per-request upserts and periodic GC queries.
 
 ## Links Not Resolving
 
