@@ -1,0 +1,28 @@
+{{- if .Values.dragonfly.enabled }}
+apiVersion: dragonflydb.io/v1alpha1
+kind: Dragonfly
+metadata:
+  name: {{ include "golinks.fullname" . }}-dragonfly
+  labels:
+    {{- include "golinks.labels" . | nindent 4 }}
+  {{- with .Values.dragonfly.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.dragonfly.replicas }}
+  {{- with .Values.dragonfly.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.dragonfly.passwordSecret.enabled }}
+  authentication:
+    passwordFromSecret:
+      name: {{ .Values.dragonfly.passwordSecret.existingSecret }}
+      key: {{ .Values.dragonfly.passwordSecret.existingSecretKey }}
+  {{- end }}
+  {{- with .Values.dragonfly.args }}
+  args:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

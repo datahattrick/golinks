@@ -251,8 +251,9 @@ config:
   # Admins can also manage fallback options via /admin/fallback-redirects.
   redirectFallbacks: ""
 
-  # -- Session storage backend ("memory" or "postgres")
-  # Use "postgres" for multi-replica deployments to share sessions across pods
+  # -- Session storage backend ("memory" or "redis")
+  # Use "redis" for multi-replica deployments to share sessions across pods.
+  # Pair with dragonfly.enabled=true or provide redis.url for a standalone Redis instance.
   sessionStore: "memory"
 
   # -- Health check settings
@@ -289,6 +290,57 @@ oidc:
     adminGroups: ""
     # -- OIDC groups that grant moderator role (comma-separated)
     moderatorGroups: ""
+
+# =============================================================================
+# Redis / Dragonfly Session Store
+# =============================================================================
+# Configure when config.sessionStore is set to "redis".
+# Either enable the bundled Dragonfly CRD (requires dragonflydb operator) or
+# point at an external Redis-compatible instance via redis.url.
+redis:
+  # -- Full Redis URL (e.g. "redis://host:6379" or "rediss://host:6380" for TLS)
+  # Ignored when dragonfly.enabled=true — the URL is auto-derived from the Dragonfly service.
+  url: ""
+  # -- Redis ACL username (optional)
+  username: ""
+  # -- Existing secret containing Redis credentials
+  # Secret keys are controlled by existingSecretPasswordKey / existingSecretUsernameKey.
+  existingSecret: ""
+  # -- Key in existingSecret for REDIS_PASSWORD
+  existingSecretPasswordKey: "REDIS_PASSWORD"
+  # -- Key in existingSecret for REDIS_USERNAME (optional)
+  existingSecretUsernameKey: "REDIS_USERNAME"
+
+# -- Dragonfly in-cluster instance (dragonflydb.io/v1alpha1 CRD)
+# Requires the DragonflyDB operator to be installed in the cluster.
+# When enabled, REDIS_URL is automatically set to the Dragonfly service endpoint.
+dragonfly:
+  # -- Deploy a Dragonfly instance alongside GoLinks
+  enabled: false
+  # -- Number of Dragonfly replicas
+  replicas: 1
+  # -- Resource requests/limits for the Dragonfly pods
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  # -- Password authentication for the Dragonfly instance
+  # When enabled, the Dragonfly operator mounts this secret as the requirepass credential.
+  # Set redis.existingSecret to the same secret so GoLinks can authenticate.
+  passwordSecret:
+    # -- Enable password authentication on the Dragonfly instance
+    enabled: false
+    # -- Name of the existing secret containing the Dragonfly password
+    existingSecret: ""
+    # -- Key in existingSecret for the password
+    existingSecretKey: "REDIS_PASSWORD"
+  # -- Extra CLI args passed to the dragonfly binary (e.g. ["--maxmemory=512mb"])
+  args: []
+  # -- Annotations to add to the Dragonfly CR
+  annotations: {}
 
 # =============================================================================
 # Database Configuration

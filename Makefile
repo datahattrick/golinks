@@ -195,9 +195,9 @@ db-down:
 db-logs:
 	docker compose logs -f postgres
 
-# Start all services (PostgreSQL + OIDC)
+# Start all services (PostgreSQL + Dragonfly + OIDC)
 services-up:
-	docker compose up -d postgres oidc
+	docker compose up -d postgres dragonfly oidc
 
 # Stop all services
 services-down:
@@ -220,6 +220,8 @@ dev: services-up
 	@echo "  Login at: http://localhost:3000"
 	ENV="development" \
 	DATABASE_URL="$(DATABASE_URL)" \
+	SESSION_STORE="redis" \
+	REDIS_URL="redis://localhost:6379" \
 	OIDC_ISSUER="$(OIDC_ISSUER)" \
 	OIDC_CLIENT_ID="$(OIDC_CLIENT_ID)" \
 	OIDC_CLIENT_SECRET="$(OIDC_CLIENT_SECRET)" \

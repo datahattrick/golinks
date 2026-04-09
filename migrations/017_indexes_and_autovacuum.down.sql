@@ -1,0 +1,4 @@
+DROP INDEX IF EXISTS idx_notifications_user_created;
+DROP INDEX IF EXISTS idx_link_edit_requests_user_status;
+ALTER TABLE click_history RESET (autovacuum_vacuum_scale_factor, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay);
+ALTER TABLE keyword_lookups RESET (autovacuum_vacuum_scale_factor, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay);

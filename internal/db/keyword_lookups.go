@@ -6,15 +6,11 @@ import (
 	"golinks/internal/models"
 )
 
-// IncrementKeywordLookup upserts a keyword lookup count by outcome.
-func (d *DB) IncrementKeywordLookup(ctx context.Context, keyword, outcome string) error {
-	_, err := d.Pool.Exec(ctx, `
-		INSERT INTO keyword_lookups (keyword, outcome, count, last_seen_at)
-		VALUES ($1, $2, 1, NOW())
-		ON CONFLICT (keyword, outcome) DO UPDATE
-		SET count = keyword_lookups.count + 1, last_seen_at = NOW()
-	`, keyword, outcome)
-	return err
+// IncrementKeywordLookup records a keyword lookup by outcome. The write is
+// buffered in memory and flushed to the database in batches.
+func (d *DB) IncrementKeywordLookup(_ context.Context, keyword, outcome string) error {
+	d.buf.recordKeywordLookup(keyword, outcome)
+	return nil
 }
 
 // GetAllKeywordLookups returns all keyword lookup rows for metrics export.

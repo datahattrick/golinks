@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    container_name: golinks-dragonfly
+    ports:
+      - "6379:6379"
+    ulimits:
+      memlock: -1
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   oidc:
     image: ghcr.io/navikt/mock-oauth2-server:2.1.10
     container_name: golinks-oidc
@@ -55,12 +68,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      dragonfly:
+        condition: service_healthy
       oidc:
         condition: service_healthy
     environment:
       ENV: "development"
       SERVER_ADDR: ":3000"
       DATABASE_URL: "postgres://golinks:golinks@postgres:5432/golinks?sslmode=disable"
+      SESSION_STORE: "redis"
+      REDIS_URL: "redis://dragonfly:6379"
       OIDC_ISSUER: "http://oidc:8080/golinks"
       OIDC_CLIENT_ID: "golinks-app"
       OIDC_CLIENT_SECRET: "secret"

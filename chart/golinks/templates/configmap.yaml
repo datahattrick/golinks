@@ -25,6 +25,14 @@ data:
   REDIRECT_FALLBACKS: {{ .Values.config.redirectFallbacks | quote }}
   {{- end }}
   SESSION_STORE: {{ .Values.config.sessionStore | quote }}
+  {{- if .Values.dragonfly.enabled }}
+  REDIS_URL: {{ printf "redis://%s-dragonfly:6379" (include "golinks.fullname" .) | quote }}
+  {{- else if .Values.redis.url }}
+  REDIS_URL: {{ .Values.redis.url | quote }}
+  {{- end }}
+  {{- if .Values.redis.username }}
+  REDIS_USERNAME: {{ .Values.redis.username | quote }}
+  {{- end }}
   ENABLE_RANDOM_KEYWORDS: {{ .Values.config.features.randomKeywords | quote }}
   ENABLE_PERSONAL_LINKS: {{ .Values.config.features.personalLinks | quote }}
   ENABLE_ORG_LINKS: {{ .Values.config.features.orgLinks | quote }}

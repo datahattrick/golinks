@@ -14,23 +14,17 @@ import (
 
 // CreateSharedLink inserts a share offer after checking anti-spam limits.
 func (d *DB) CreateSharedLink(ctx context.Context, link *models.SharedLink) error {
-	// Check sender outgoing limit
-	var senderCount int
-	if err := d.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM shared_links WHERE sender_id = $1`, link.SenderID,
-	).Scan(&senderCount); err != nil {
+	// Check both sender and recipient limits in a single round-trip.
+	var senderCount, recipientCount int
+	if err := d.Pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM shared_links WHERE sender_id    = $1),
+			(SELECT COUNT(*) FROM shared_links WHERE recipient_id = $2)
+	`, link.SenderID, link.RecipientID).Scan(&senderCount, &recipientCount); err != nil {
 		return err
 	}
 	if senderCount >= 5 {
 		return ErrShareLimitReached
-	}
-
-	// Check recipient incoming limit
-	var recipientCount int
-	if err := d.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM shared_links WHERE recipient_id = $1`, link.RecipientID,
-	).Scan(&recipientCount); err != nil {
-		return err
 	}
 	if recipientCount >= 5 {
 		return ErrRecipientLimitReached

@@ -85,18 +85,16 @@ func (d *DB) ResolveKeywordForUser(ctx context.Context, userID *uuid.UUID, orgID
 	return resolved, nil
 }
 
-// IncrementResolvedLinkClickCount increments the click count for a resolved link.
-func (d *DB) IncrementResolvedLinkClickCount(ctx context.Context, resolved *models.ResolvedLink, userID *uuid.UUID) error {
+// IncrementResolvedLinkClickCount records a click for a resolved link. Writes
+// are buffered in memory and flushed in batches to reduce WAL write frequency.
+func (d *DB) IncrementResolvedLinkClickCount(_ context.Context, resolved *models.ResolvedLink, userID *uuid.UUID) error {
 	switch resolved.Source {
 	case "personal":
 		if userID != nil {
-			_, err := d.Pool.Exec(ctx, `UPDATE user_links SET click_count = click_count + 1 WHERE id = $1`, resolved.ID)
-			return err
+			d.buf.recordUserLinkClick(resolved.ID)
 		}
-		return nil
 	case "org", "global":
-		return d.IncrementClickCount(ctx, resolved.ID)
-	default:
-		return nil
+		d.buf.recordLinkClick(resolved.ID)
 	}
+	return nil
 }

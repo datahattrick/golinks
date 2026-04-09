@@ -44,7 +44,7 @@ func main() {
 	// Wait for the database to become available before proceeding.
 	// This handles the common Kubernetes race where the app pod starts before
 	// the database pod is ready to accept connections.
-	database, err := waitForDB(ctx, cfg.DatabaseURL, 60*time.Second)
+	database, err := waitForDB(ctx, cfg.DatabaseURL, 60*time.Second, cfg.DBPoolMaxConns, cfg.DBPoolMinConns)
 	if err != nil {
 		slog.Error("database never became available", "error", err)
 		os.Exit(1)
@@ -89,6 +89,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start write buffer — batches click counts and keyword lookups to reduce WAL writes
+	database.StartWriteBuffer(ctx, 5*time.Second)
+
 	// Start background health checker
 	healthChecker := jobs.NewHealthChecker(database, 1*time.Hour, 24*time.Hour)
 	go healthChecker.Start(ctx)
@@ -118,16 +121,17 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server exited")
+	database.FlushWriteBuffer(shutdownCtx)
 }
 
 // waitForDB retries connecting to the database until it succeeds or the timeout
 // elapses. It logs each failed attempt so progress is visible in pod logs.
-func waitForDB(ctx context.Context, connString string, timeout time.Duration) (*db.DB, error) {
+func waitForDB(ctx context.Context, connString string, timeout time.Duration, maxConns, minConns int32) (*db.DB, error) {
 	deadline := time.Now().Add(timeout)
 	attempt := 0
 	for {
 		attempt++
-		database, err := db.New(ctx, connString)
+		database, err := db.New(ctx, connString, maxConns, minConns)
 		if err == nil {
 			if attempt > 1 {
 				slog.Info("database connection established", "attempt", attempt)

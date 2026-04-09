@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,11 +16,23 @@ import (
 // DB wraps a pgxpool connection pool.
 type DB struct {
 	Pool *pgxpool.Pool
+	buf  *writeBuffer
 }
 
-// New creates a new database connection pool.
-func New(ctx context.Context, connString string) (*DB, error) {
-	pool, err := pgxpool.New(ctx, connString)
+// New creates a new database connection pool with explicit sizing and lifecycle settings.
+func New(ctx context.Context, connString string, maxConns, minConns int32) (*DB, error) {
+	cfg, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database URL: %w", err)
+	}
+
+	cfg.MaxConns          = maxConns
+	cfg.MinConns          = minConns
+	cfg.MaxConnLifetime   = 30 * time.Minute
+	cfg.MaxConnIdleTime   = 5 * time.Minute
+	cfg.HealthCheckPeriod = 1 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pool: %w", err)
 	}
@@ -28,7 +41,7 @@ func New(ctx context.Context, connString string) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &DB{Pool: pool}, nil
+	return &DB{Pool: pool, buf: newWriteBuffer()}, nil
 }
 
 // RunMigrations runs all embedded SQL migrations.

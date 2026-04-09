@@ -39,9 +39,16 @@ type Config struct {
 	OIDCAdminGroups     []string // OIDC groups that grant the admin role
 	OIDCModeratorGroups []string // OIDC groups that grant the moderator role (org_mod when user has an org, global_mod otherwise)
 
+	// Database pool
+	DBPoolMaxConns int32 // env: DB_POOL_MAX_CONNS, default 10
+	DBPoolMinConns int32 // env: DB_POOL_MIN_CONNS, default 2
+
 	// Session
-	SessionSecret string // Used for signing cookies (min 32 chars)
-	SessionStore  string // "memory" (default) or "postgres"
+	SessionSecret  string // Used for signing cookies (min 32 chars)
+	SessionStore   string // "memory" (default) or "redis"
+	RedisURL       string // Redis/Dragonfly connection URL, e.g. "redis://localhost:6379"
+	RedisUsername  string // Redis ACL username (optional)
+	RedisPassword  string // Redis password (optional; kept separate so it can come from a Secret)
 
 	// CORS
 	CORSOrigins string // Comma-separated allowed origins, e.g. "https://example.com,https://app.example.com"
@@ -107,8 +114,13 @@ func Load() *Config {
 		OIDCGroupsClaim:     getEnv("OIDC_GROUPS_CLAIM", "groups"),
 		OIDCAdminGroups:     parseStringList(getEnv("OIDC_ADMIN_GROUPS", "")),
 		OIDCModeratorGroups: parseStringList(getEnv("OIDC_MODERATOR_GROUPS", "")),
+		DBPoolMaxConns:   int32(getEnvInt("DB_POOL_MAX_CONNS", 10)),
+		DBPoolMinConns:   int32(getEnvInt("DB_POOL_MIN_CONNS", 2)),
 		SessionSecret:    getEnv("SESSION_SECRET", "change-me-in-production-min-32-chars"),
 		SessionStore:     strings.ToLower(getEnv("SESSION_STORE", "memory")),
+		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
+		RedisUsername:    getEnv("REDIS_USERNAME", ""),
+		RedisPassword:    getEnv("REDIS_PASSWORD", ""),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
 		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
 		EnablePersonalLinks:  getEnv("ENABLE_PERSONAL_LINKS", "true") != "false",

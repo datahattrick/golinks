@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"log/slog"
 	"os"
+	"net/url"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/fiber/v3/middleware/static"
-	pgstore "github.com/gofiber/storage/postgres/v3"
+	redisstore "github.com/gofiber/storage/redis/v3"
 	"github.com/gofiber/template/html/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -189,13 +190,20 @@ func New(cfg *config.Config) *Server {
 		CookieSameSite:  "Lax",
 		AbsoluteTimeout: 24 * time.Hour,
 	}
-	if cfg.SessionStore == "postgres" {
-		sessionCfg.Storage = pgstore.New(pgstore.Config{
-			ConnectionURI: cfg.DatabaseURL,
-			Table:         "fiber_sessions",
-			GCInterval:    10 * time.Minute,
+	if cfg.SessionStore == "redis" {
+		redisURL := cfg.RedisURL
+		if cfg.RedisPassword != "" || cfg.RedisUsername != "" {
+			// Embed credentials into the URL — the redis storage library parses
+			// the URL and ignores separate Username/Password fields.
+			if u, err := url.Parse(cfg.RedisURL); err == nil {
+				u.User = url.UserPassword(cfg.RedisUsername, cfg.RedisPassword)
+				redisURL = u.String()
+			}
+		}
+		sessionCfg.Storage = redisstore.New(redisstore.Config{
+			URL: redisURL,
 		})
-		slog.Info("session store: postgres")
+		slog.Info("session store: redis", "url", cfg.RedisURL)
 	} else {
 		slog.Info("session store: memory")
 	}

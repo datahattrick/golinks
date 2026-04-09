@@ -27,7 +27,7 @@ func setupTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	ctx := context.Background()
-	database, err := New(ctx, connString)
+	database, err := New(ctx, connString, 5, 1)
 	if err != nil {
 		t.Fatalf("failed to connect to test database: %v", err)
 	}

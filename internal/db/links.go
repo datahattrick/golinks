@@ -241,18 +241,10 @@ func (d *DB) GetLinkByKeyword(ctx context.Context, keyword string) (*models.Link
 	return scanLink(d.Pool.QueryRow(ctx, query, keyword, models.StatusApproved))
 }
 
-// IncrementClickCount increments the click count for a link and records hourly history.
-func (d *DB) IncrementClickCount(ctx context.Context, linkID uuid.UUID) error {
-	_, err := d.Pool.Exec(ctx, `UPDATE links SET click_count = click_count + 1 WHERE id = $1`, linkID)
-	if err != nil {
-		return err
-	}
-	// Record hourly click for sparkline analytics (best-effort)
-	d.Pool.Exec(ctx, `
-		INSERT INTO click_history (link_id, hour_bucket, click_count)
-		VALUES ($1, DATE_TRUNC('hour', NOW()), 1)
-		ON CONFLICT (link_id, hour_bucket) DO UPDATE SET click_count = click_history.click_count + 1
-	`, linkID)
+// IncrementClickCount records a click for a link. The write is buffered in
+// memory and flushed to the database in batches to reduce WAL write frequency.
+func (d *DB) IncrementClickCount(_ context.Context, linkID uuid.UUID) error {
+	d.buf.recordLinkClick(linkID)
 	return nil
 }
 
