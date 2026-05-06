@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -60,6 +61,7 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 
 	filter := c.Query("filter", "all")
 	scope := c.Query("scope", "all")
+	search := strings.TrimSpace(c.Query("q"))
 	if scope != "global" && scope != "org" {
 		scope = "all"
 	}
@@ -68,11 +70,11 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 	page, perPage := parsePagination(c)
 	offset := (page - 1) * perPage
 
-	links, err := h.db.GetLinksForManagement(c.Context(), user, filter, scope, perPage, offset)
+	links, err := h.db.GetLinksForManagement(c.Context(), user, filter, scope, search, perPage, offset)
 	if err != nil {
 		return err
 	}
-	total, err := h.db.CountLinksForManagement(c.Context(), user, filter, scope)
+	total, err := h.db.CountLinksForManagement(c.Context(), user, filter, scope, search)
 	if err != nil {
 		return err
 	}
@@ -92,6 +94,7 @@ func (h *ManageHandler) Index(c fiber.Ctx) error {
 		"Links":        links,
 		"Filter":       filter,
 		"Scope":        scope,
+		"Search":       search,
 		"User":         user,
 		"OrgNames":     orgNames,
 		"OrgColors":    orgColors,

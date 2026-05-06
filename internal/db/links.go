@@ -642,8 +642,9 @@ func (d *DB) UpdateLinkHealthStatus(ctx context.Context, linkID uuid.UUID, statu
 // GetLinksForManagement retrieves links for the management page based on user role and filters.
 // healthFilter: "all"|"healthy"|"unhealthy"|"unknown"
 // scope: "all"|"global"|"org"
+// search: optional substring match against keyword, url, and description
 // For moderators/admins, includes author info via JOIN.
-func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string, limit int, offset int) ([]models.Link, error) {
+func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string, search string, limit int, offset int) ([]models.Link, error) {
 	if scope == "" {
 		scope = "all"
 	}
@@ -674,7 +675,7 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 		`
 		args = []any{models.StatusApproved, models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
 	} else {
-		return d.GetAuthoredLinksForUser(ctx, user.ID, healthFilter, scope, limit, offset)
+		return d.GetAuthoredLinksForUser(ctx, user.ID, healthFilter, scope, search, limit, offset)
 	}
 
 	// Scope filter (only meaningful for global mods who can see all scopes)
@@ -682,11 +683,16 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 		sql += ` AND l.scope = $` + strconv.Itoa(len(args)+1)
 		args = append(args, scope)
 	}
-
 	// Health filter
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND l.health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
+	}
+	// Search filter
+	if search != "" {
+		n := strconv.Itoa(len(args) + 1)
+		sql += ` AND (l.keyword ILIKE $` + n + ` OR l.url ILIKE $` + n + ` OR l.description ILIKE $` + n + `)`
+		args = append(args, "%"+search+"%")
 	}
 
 	sql += ` ORDER BY l.keyword ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
@@ -700,7 +706,7 @@ func (d *DB) GetLinksForManagement(ctx context.Context, user *models.User, healt
 }
 
 // CountLinksForManagement returns the total count matching the same filters as GetLinksForManagement.
-func (d *DB) CountLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string) (int, error) {
+func (d *DB) CountLinksForManagement(ctx context.Context, user *models.User, healthFilter string, scope string, search string) (int, error) {
 	if scope == "" {
 		scope = "all"
 	}
@@ -714,7 +720,7 @@ func (d *DB) CountLinksForManagement(ctx context.Context, user *models.User, hea
 		sql = `SELECT COUNT(*) FROM links l WHERE l.status IN ($1, $2) AND l.scope = $3 AND l.organization_id = $4`
 		args = []any{models.StatusApproved, models.StatusDeletionRequested, models.ScopeOrg, *user.OrganizationID}
 	} else {
-		return d.countAuthoredLinksForUser(ctx, user.ID, healthFilter, scope)
+		return d.countAuthoredLinksForUser(ctx, user.ID, healthFilter, scope, search)
 	}
 
 	if scope != "all" {
@@ -724,6 +730,11 @@ func (d *DB) CountLinksForManagement(ctx context.Context, user *models.User, hea
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND l.health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
+	}
+	if search != "" {
+		n := strconv.Itoa(len(args) + 1)
+		sql += ` AND (l.keyword ILIKE $` + n + ` OR l.url ILIKE $` + n + ` OR l.description ILIKE $` + n + `)`
+		args = append(args, "%"+search+"%")
 	}
 
 	var count int
@@ -769,7 +780,7 @@ func scanLinksWithAuthor(rows pgx.Rows) ([]models.Link, error) {
 }
 
 // GetAuthoredLinksForUser returns links where the user is the author.
-func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string, limit int, offset int) ([]models.Link, error) {
+func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string, search string, limit int, offset int) ([]models.Link, error) {
 	if scope == "" {
 		scope = "all"
 	}
@@ -788,6 +799,11 @@ func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, heal
 		sql += ` AND health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
 	}
+	if search != "" {
+		n := strconv.Itoa(len(args) + 1)
+		sql += ` AND (keyword ILIKE $` + n + ` OR url ILIKE $` + n + ` OR description ILIKE $` + n + `)`
+		args = append(args, "%"+search+"%")
+	}
 
 	sql += ` ORDER BY keyword ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
 	args = append(args, limit, offset)
@@ -799,7 +815,7 @@ func (d *DB) GetAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, heal
 	return scanLinks(rows)
 }
 
-func (d *DB) countAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string) (int, error) {
+func (d *DB) countAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, healthFilter string, scope string, search string) (int, error) {
 	sql := `
 		SELECT COUNT(*) FROM links
 		WHERE (created_by = $1 OR (submitted_by = $1 AND status IN ($2, $3)))
@@ -813,6 +829,11 @@ func (d *DB) countAuthoredLinksForUser(ctx context.Context, userID uuid.UUID, he
 	if healthFilter != "" && healthFilter != "all" {
 		sql += ` AND health_status = $` + strconv.Itoa(len(args)+1)
 		args = append(args, healthFilter)
+	}
+	if search != "" {
+		n := strconv.Itoa(len(args) + 1)
+		sql += ` AND (keyword ILIKE $` + n + ` OR url ILIKE $` + n + ` OR description ILIKE $` + n + `)`
+		args = append(args, "%"+search+"%")
 	}
 
 	var count int
