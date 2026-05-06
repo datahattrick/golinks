@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -63,6 +63,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push to GHCR
+        id: build-ghcr
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -80,3 +81,10 @@ jobs:
           tags: ${{ steps.meta-dockerhub.outputs.tags }}
           labels: ${{ steps.meta-dockerhub.outputs.labels }}
           cache-from: type=gha
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}@${{ steps.build-ghcr.outputs.digest }}
+          artifact-name: sbom.spdx.json
+          output-file: sbom.spdx.json

@@ -37,6 +37,9 @@ bin/
 .DS_Store
 Thumbs.db
 
+# Generated SBOM
+*.spdx.json
+
 # Claude
 .claude/
 CLAUDE.md

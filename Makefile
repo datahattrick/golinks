@@ -1,6 +1,6 @@
 .PHONY: run build test clean dev db-up db-down db-logs docker-up docker-down services-up services-down \
 	test-unit test-integration test-all test-cover test-verbose test-db-setup test-db-teardown \
-	css css-watch
+	css css-watch sbom
 
 # Auto-load .env file if it exists (vars can still be overridden via command line)
 ifneq (,$(wildcard ./.env))
@@ -151,6 +151,16 @@ test-middleware:
 # Development Targets
 # ============================================================================
 
+# Generate SBOM from source using Syft (install: https://github.com/anchore/syft)
+sbom:
+	@if ! command -v syft >/dev/null 2>&1; then \
+		echo "syft not found. Install it:"; \
+		echo "  curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
+		exit 1; \
+	fi
+	syft . -o spdx-json=sbom.spdx.json
+	@echo "SBOM written to sbom.spdx.json"
+
 # Clean build artifacts
 clean:
 	rm -f $(APP_NAME) coverage.out coverage.html
@@ -261,6 +271,7 @@ help:
 	@echo "  make build          - Build CSS and application binary"
 	@echo "  make run            - Run the application"
 	@echo "  make dev            - Start services and run app with OIDC"
+	@echo "  make sbom           - Generate SBOM (requires syft)"
 	@echo "  make css            - Build production Tailwind CSS"
 	@echo "  make css-watch      - Watch and rebuild CSS on changes"
 	@echo "  make clean          - Remove build artifacts"
