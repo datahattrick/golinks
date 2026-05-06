@@ -9,14 +9,21 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"golinks/migrations"
 )
 
 // DB wraps a pgxpool connection pool.
 type DB struct {
-	Pool *pgxpool.Pool
-	buf  *writeBuffer
+	Pool  *pgxpool.Pool
+	buf   *writeBuffer
+	redis *redis.Client // optional; nil when Redis is not configured
+}
+
+// AttachRedis wires a Redis client into the DB for click deduplication.
+func (d *DB) AttachRedis(rdb *redis.Client) {
+	d.redis = rdb
 }
 
 // New creates a new database connection pool with explicit sizing and lifecycle settings.

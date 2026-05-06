@@ -2,6 +2,7 @@ package config
 
 import (
 	"log/slog"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -183,6 +184,19 @@ func (c *Config) IsDev() bool {
 // IsMTLSEnabled returns true if mTLS is configured with a CA file.
 func (c *Config) IsMTLSEnabled() bool {
 	return c.TLSEnabled && c.TLSCAFile != ""
+}
+
+// EffectiveRedisURL returns RedisURL with credentials embedded when configured.
+// The redis storage library parses the URL and ignores separate username/password
+// fields, so credentials must be part of the URL itself.
+func (c *Config) EffectiveRedisURL() string {
+	if c.RedisPassword != "" || c.RedisUsername != "" {
+		if u, err := url.Parse(c.RedisURL); err == nil {
+			u.User = url.UserPassword(c.RedisUsername, c.RedisPassword)
+			return u.String()
+		}
+	}
+	return c.RedisURL
 }
 
 // IsSimpleMode returns true if both personal and org links are disabled.

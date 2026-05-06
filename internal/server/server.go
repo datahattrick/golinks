@@ -10,7 +10,6 @@ import (
 	"html/template"
 	"log/slog"
 	"os"
-	"net/url"
 	"strings"
 	"time"
 
@@ -191,17 +190,8 @@ func New(cfg *config.Config) *Server {
 		AbsoluteTimeout: 24 * time.Hour,
 	}
 	if cfg.SessionStore == "redis" {
-		redisURL := cfg.RedisURL
-		if cfg.RedisPassword != "" || cfg.RedisUsername != "" {
-			// Embed credentials into the URL — the redis storage library parses
-			// the URL and ignores separate Username/Password fields.
-			if u, err := url.Parse(cfg.RedisURL); err == nil {
-				u.User = url.UserPassword(cfg.RedisUsername, cfg.RedisPassword)
-				redisURL = u.String()
-			}
-		}
 		sessionCfg.Storage = redisstore.New(redisstore.Config{
-			URL: redisURL,
+			URL: cfg.EffectiveRedisURL(),
 		})
 		slog.Info("session store: redis", "url", cfg.RedisURL)
 	} else {

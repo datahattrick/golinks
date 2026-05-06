@@ -954,14 +954,29 @@ func (d *DB) GetTopUsedLinksForUser(ctx context.Context, userID uuid.UUID, orgID
 	return scanLinks(rows)
 }
 
-// GetTopApprovedLinks retrieves the most clicked approved links (global + org if provided, no personal).
+// GetTopApprovedLinks retrieves the most popular approved links using a
+// time-decay score computed from click_history. Each hourly bucket is weighted
+// by EXP(-age_hours/24) so clicks older than ~24 hours contribute less than
+// recent ones, making it hard to hold the top spot via a short spam burst.
+// Links with no recent history fall back to a score of 0.
 func (d *DB) GetTopApprovedLinks(ctx context.Context, orgID *uuid.UUID, limit int) ([]models.Link, error) {
 	rows, err := d.Pool.Query(ctx, `
+		WITH recent_activity AS (
+			SELECT
+				link_id,
+				SUM(click_count * EXP(
+					-EXTRACT(EPOCH FROM (NOW() - hour_bucket)) / 3600.0 / 24.0
+				)) AS decay_score
+			FROM click_history
+			WHERE hour_bucket >= NOW() - INTERVAL '7 days'
+			GROUP BY link_id
+		)
 		SELECT `+linkColumns+`
 		FROM links
-		WHERE status = $1
-			AND (scope = 'global' OR ($2::uuid IS NOT NULL AND scope = 'org' AND organization_id = $2))
-		ORDER BY click_count DESC, keyword ASC
+		LEFT JOIN recent_activity ON recent_activity.link_id = links.id
+		WHERE links.status = $1
+			AND (links.scope = 'global' OR ($2::uuid IS NOT NULL AND links.scope = 'org' AND links.organization_id = $2))
+		ORDER BY COALESCE(recent_activity.decay_score, 0) DESC, links.keyword ASC
 		LIMIT $3
 	`, models.StatusApproved, orgID, limit)
 	if err != nil {

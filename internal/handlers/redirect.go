@@ -108,9 +108,12 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 		return err
 	}
 
-	// Record successful resolution and increment click count asynchronously
+	// Record successful resolution; deduplicate clicks per actor within a 1-hour
+	// window so repeated hits from the same user don't inflate the leaderboard.
 	metrics.RecordKeywordLookup(keyword, models.OutcomeResolved)
-	go h.db.IncrementResolvedLinkClickCount(context.Background(), resolved, userID)
+	if h.db.ShouldRecordClick(c.Context(), actorForClick(c, user), resolved.ID) {
+		go h.db.IncrementResolvedLinkClickCount(context.Background(), resolved, userID)
+	}
 
 	// Return JSON for API clients
 	if wantsJSON {
@@ -125,6 +128,34 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	}
 
 	return c.Redirect().To(resolved.URL)
+}
+
+// actorForClick returns a stable per-request identifier used to deduplicate
+// click counts. Priority: OIDC sub > session ID > real client IP.
+// Fresh sessions (no cookie sent by client) are treated as IP-based to avoid
+// every cookieless request creating a unique actor and bypassing dedup.
+func actorForClick(c fiber.Ctx, user *models.User) string {
+	if user != nil && user.Sub != "" {
+		return "user:" + user.Sub
+	}
+	if sess := session.FromContext(c); sess != nil && !sess.Fresh() {
+		if id := sess.ID(); id != "" {
+			return "sess:" + id
+		}
+	}
+	return "ip:" + clientIP(c)
+}
+
+// clientIP returns the real client IP, preferring proxy-forwarded headers over
+// the direct connection address so dedup works correctly behind nginx/ingress.
+func clientIP(c fiber.Ctx) string {
+	if ip := c.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ips := c.IPs(); len(ips) > 0 {
+		return ips[0]
+	}
+	return c.IP()
 }
 
 // Random redirects to a random link ("I'm Feeling Lucky" feature).

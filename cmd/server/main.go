@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/email"
@@ -73,6 +75,18 @@ func main() {
 			slog.Warn("failed to seed dev links", "error", err)
 		} else {
 			slog.Info("development seed links loaded")
+		}
+	}
+
+	// Attach Redis for click deduplication when configured
+	if cfg.RedisURL != "" {
+		if opt, err := redis.ParseURL(cfg.EffectiveRedisURL()); err == nil {
+			rdb := redis.NewClient(opt)
+			defer rdb.Close()
+			database.AttachRedis(rdb)
+			slog.Info("click deduplication: redis", "url", cfg.RedisURL)
+		} else {
+			slog.Warn("click deduplication disabled: failed to parse Redis URL", "error", err)
 		}
 	}
 
