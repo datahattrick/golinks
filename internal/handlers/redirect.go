@@ -79,11 +79,14 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 			}
 			metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
 
-			// Store redirect destination for post-login return (unauthenticated, full mode only)
+			// Unauthenticated in full mode: the keyword might be personal or org-scoped.
+			// Store the destination and start the OIDC login flow so we can re-resolve
+			// with user context after authentication.
 			if user == nil && !h.cfg.IsSimpleMode() {
 				if sess := session.FromContext(c); sess != nil {
 					sess.Set("redirect_after_login", c.OriginalURL())
 				}
+				return c.Redirect().To("/auth/login")
 			}
 
 			// Load fallback options for authenticated org members
@@ -99,7 +102,6 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 				"Keyword":         keyword,
 				"Suggestions":     suggestions,
 				"User":            user,
-				"NeedsAuth":       user == nil && !h.cfg.IsSimpleMode(),
 				"FallbackOptions": fallbackOptions,
 			}, h.cfg))
 		}
