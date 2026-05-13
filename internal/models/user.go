@@ -27,6 +27,7 @@ type User struct {
 	FallbackRedirectID *uuid.UUID `json:"fallback_redirect_id"` // User's chosen fallback redirect (nil = no fallback)
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
+	LastLoginAt        *time.Time `json:"last_login_at"` // Last successful OIDC sign-in; nil for users who have never logged in
 }
 
 // IsAdmin returns true if the user is an admin.

@@ -10,6 +10,7 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/oidchealth"
 )
 
 // cnUsernameRe extracts the username from a CN like "Full Name (username)".
@@ -19,13 +20,15 @@ var cnUsernameRe = regexp.MustCompile(`\(([^)]+)\)\s*$`)
 type AuthMiddleware struct {
 	db               *db.DB
 	clientCertHeader string
+	oidcProbe        *oidchealth.Probe
 }
 
 // NewAuthMiddleware creates a new auth middleware instance.
-func NewAuthMiddleware(db *db.DB, cfg *config.Config) *AuthMiddleware {
+func NewAuthMiddleware(db *db.DB, cfg *config.Config, oidcProbe *oidchealth.Probe) *AuthMiddleware {
 	return &AuthMiddleware{
 		db:               db,
 		clientCertHeader: cfg.ClientCertHeader,
+		oidcProbe:        oidcProbe,
 	}
 }
 
@@ -61,12 +64,18 @@ func (m *AuthMiddleware) RequireAuth(c fiber.Ctx) error {
 
 // redirectToLogin saves the current URL and redirects to login.
 // For API requests (/api/*), returns a 401 JSON error instead of redirecting.
+// When the OIDC issuer is currently unreachable, browsers are diverted to
+// /auth/unavailable so they aren't bounced to a dead login URL.
 func (m *AuthMiddleware) redirectToLogin(c fiber.Ctx, sess *session.Middleware) error {
 	if strings.HasPrefix(c.Path(), "/api/") {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status": "error",
 			"error":  "authentication required",
 		})
+	}
+
+	if m.oidcProbe != nil && !m.oidcProbe.IsHealthy() {
+		return c.Redirect().To("/auth/unavailable")
 	}
 
 	// Store the original URL for redirect after login

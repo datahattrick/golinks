@@ -13,18 +13,20 @@ import (
 	"golinks/internal/db"
 	"golinks/internal/metrics"
 	"golinks/internal/models"
+	"golinks/internal/oidchealth"
 	"golinks/internal/validation"
 )
 
 // RedirectHandler handles keyword-to-URL redirects.
 type RedirectHandler struct {
-	db  *db.DB
-	cfg *config.Config
+	db        *db.DB
+	cfg       *config.Config
+	oidcProbe *oidchealth.Probe
 }
 
 // NewRedirectHandler creates a new redirect handler.
-func NewRedirectHandler(database *db.DB, cfg *config.Config) *RedirectHandler {
-	return &RedirectHandler{db: database, cfg: cfg}
+func NewRedirectHandler(database *db.DB, cfg *config.Config, oidcProbe *oidchealth.Probe) *RedirectHandler {
+	return &RedirectHandler{db: database, cfg: cfg, oidcProbe: oidcProbe}
 }
 
 // Redirect looks up a keyword and redirects to the associated URL.
@@ -51,6 +53,21 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 	}
 
 	user, _ := c.Locals("user").(*models.User)
+
+	// Unauthenticated browser users in full mode: prefer logging in so personal
+	// or org keywords can shadow a global match. If the OIDC issuer is currently
+	// unreachable, fall through to global-only resolution and surface a notice
+	// when the keyword is missing.
+	authNotice := ""
+	if user == nil && !wantsJSON && !h.cfg.IsSimpleMode() {
+		if h.oidcProbe.IsHealthy() {
+			if sess := session.FromContext(c); sess != nil {
+				sess.Set("redirect_after_login", c.OriginalURL())
+			}
+			return c.Redirect().To("/auth/login")
+		}
+		authNotice = "Sign-in is temporarily unavailable. Showing global links only — please try again in a few minutes."
+	}
 
 	var userID *uuid.UUID
 	var orgID *uuid.UUID
@@ -79,16 +96,6 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 			}
 			metrics.RecordKeywordLookup(keyword, models.OutcomeNotFound)
 
-			// Unauthenticated in full mode: the keyword might be personal or org-scoped.
-			// Store the destination and start the OIDC login flow so we can re-resolve
-			// with user context after authentication.
-			if user == nil && !h.cfg.IsSimpleMode() {
-				if sess := session.FromContext(c); sess != nil {
-					sess.Set("redirect_after_login", c.OriginalURL())
-				}
-				return c.Redirect().To("/auth/login")
-			}
-
 			// Load fallback options for authenticated org members
 			var fallbackOptions []models.FallbackRedirect
 			if user != nil && user.OrganizationID != nil {
@@ -103,6 +110,7 @@ func (h *RedirectHandler) Redirect(c fiber.Ctx) error {
 				"Suggestions":     suggestions,
 				"User":            user,
 				"FallbackOptions": fallbackOptions,
+				"Notice":          authNotice,
 			}, h.cfg))
 		}
 		return err

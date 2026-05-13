@@ -11,10 +11,11 @@ import (
 	"golinks/internal/handlers/api"
 	"golinks/internal/metrics"
 	"golinks/internal/middleware"
+	"golinks/internal/oidchealth"
 )
 
 // RegisterRoutes registers all application routes.
-func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
+func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB, oidcProbe *oidchealth.Probe) error {
 	// Initialize Prometheus metrics collector
 	metrics.Init(database)
 
@@ -23,7 +24,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Use(middleware.UnfurlMiddleware(database, s.Cfg))
 
 	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(database, s.Cfg)
+	authMiddleware := middleware.NewAuthMiddleware(database, s.Cfg, oidcProbe)
 
 	// Initialize email notifier
 	notifier := email.NewNotifier(s.Cfg, database)
@@ -31,7 +32,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 
 	// Initialize handlers
 	linkHandler := handlers.NewLinkHandler(database, s.Cfg)
-	redirectHandler := handlers.NewRedirectHandler(database, s.Cfg)
+	redirectHandler := handlers.NewRedirectHandler(database, s.Cfg, oidcProbe)
 	profileHandler := handlers.NewProfileHandler(database, s.Cfg)
 	userLinkHandler := handlers.NewUserLinkHandler(database, s.Cfg)
 	moderationHandler := handlers.NewModerationHandler(database, s.Cfg, notifier)
@@ -50,7 +51,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 		os.Exit(1)
 	}
 
-	authHandler, err := handlers.NewAuthHandler(ctx, s.Cfg, database)
+	authHandler, err := handlers.NewAuthHandler(ctx, s.Cfg, database, oidcProbe)
 	if err != nil {
 		return err
 	}
@@ -58,6 +59,7 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB) error {
 	s.App.Get("/auth/login", authHandler.Login)
 	s.App.Get("/auth/callback", authHandler.Callback)
 	s.App.Get("/auth/logout", authHandler.Logout)
+	s.App.Get("/auth/unavailable", authHandler.Unavailable)
 
 	// Frontend routes - always require authentication
 	s.App.Get("/", authMiddleware.RequireAuth, linkHandler.Index)

@@ -16,6 +16,7 @@ import (
 	"golinks/internal/email"
 	"golinks/internal/handlers"
 	"golinks/internal/jobs"
+	"golinks/internal/oidchealth"
 	"golinks/internal/server"
 )
 
@@ -97,8 +98,13 @@ func main() {
 	// Create server
 	srv := server.New(cfg)
 
+	// Background probe of the OIDC issuer so the redirect path can fall back
+	// to global-only resolution when the auth server is unreachable.
+	oidcProbe := oidchealth.New(cfg.OIDCIssuer)
+	go oidcProbe.Start(ctx)
+
 	// Register routes
-	if err := srv.RegisterRoutes(ctx, database); err != nil {
+	if err := srv.RegisterRoutes(ctx, database, oidcProbe); err != nil {
 		slog.Error("failed to register routes", "error", err)
 		os.Exit(1)
 	}

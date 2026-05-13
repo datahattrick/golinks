@@ -11,7 +11,7 @@ import (
 )
 
 // userColumns is the standard column list for user queries.
-const userColumns = `id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at`
+const userColumns = `id, sub, COALESCE(username, ''), email, name, picture, role, organization_id, fallback_redirect_id, created_at, updated_at, last_login_at`
 
 // scanUser scans a single row into a User struct.
 func scanUser(row pgx.Row) (*models.User, error) {
@@ -28,6 +28,7 @@ func scanUser(row pgx.Row) (*models.User, error) {
 		&user.FallbackRedirectID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&user.LastLoginAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -139,7 +140,7 @@ type UserWithOrg struct {
 func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 	query := `
 		SELECT u.id, u.sub, COALESCE(u.username, ''), u.email, u.name, u.picture,
-			   u.role, u.organization_id, u.fallback_redirect_id, u.created_at, u.updated_at,
+			   u.role, u.organization_id, u.fallback_redirect_id, u.created_at, u.updated_at, u.last_login_at,
 			   COALESCE(o.name, ''), COALESCE(o.slug, '')
 		FROM users u
 		LEFT JOIN organizations o ON u.organization_id = o.id
@@ -157,7 +158,7 @@ func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 		var u UserWithOrg
 		if err := rows.Scan(
 			&u.ID, &u.Sub, &u.Username, &u.Email, &u.Name, &u.Picture,
-			&u.Role, &u.OrganizationID, &u.FallbackRedirectID, &u.CreatedAt, &u.UpdatedAt,
+			&u.Role, &u.OrganizationID, &u.FallbackRedirectID, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
 			&u.OrganizationName, &u.OrganizationSlug,
 		); err != nil {
 			return nil, err
@@ -166,6 +167,13 @@ func (d *DB) GetAllUsersWithOrgs(ctx context.Context) ([]UserWithOrg, error) {
 	}
 
 	return users, rows.Err()
+}
+
+// UpdateUserLastLogin stamps the user's last_login_at to NOW().
+// Called after a successful OIDC callback so admins can see recent activity.
+func (d *DB) UpdateUserLastLogin(ctx context.Context, userID uuid.UUID) error {
+	_, err := d.Pool.Exec(ctx, `UPDATE users SET last_login_at = NOW() WHERE id = $1`, userID)
+	return err
 }
 
 // SearchUsers searches users by name or email, excluding the requesting user.

@@ -47,6 +47,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wider">Organization</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wider">Role</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wider">Joined</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wider">Last Login</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -125,6 +126,9 @@
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400">
                             {{.CreatedAt.Format "Jan 2, 2006"}}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400" {{if .LastLoginAt}}title="{{.LastLoginAt.Format "Jan 2, 2006 15:04"}}"{{end}}>
+                            {{if .LastLoginAt}}{{relativeTime .LastLoginAt}}{{else}}<span class="text-gray-500 dark:text-gray-600">Never</span>{{end}}
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                             {{if and $currentUser (ne .ID $currentUser.ID)}}

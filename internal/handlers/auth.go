@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"log"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -16,19 +17,25 @@ import (
 	"golinks/internal/config"
 	"golinks/internal/db"
 	"golinks/internal/models"
+	"golinks/internal/oidchealth"
+	"golinks/internal/validation"
 )
+
+const callbackFailureNotice = "Sign-in didn't complete — the auth server did not return a token. Please try again in a moment."
 
 // AuthHandler handles OIDC authentication flows.
 type AuthHandler struct {
-	provider     *oidc.Provider
-	oauth2Config oauth2.Config
-	verifier     *oidc.IDTokenVerifier
-	db           *db.DB
-	cfg          *config.Config
+	provider       *oidc.Provider
+	oauth2Config   oauth2.Config
+	verifier       *oidc.IDTokenVerifier
+	db             *db.DB
+	cfg            *config.Config
+	oidcProbe      *oidchealth.Probe
+	endSessionURL  string // RP-initiated logout endpoint from discovery (empty if unsupported)
 }
 
 // NewAuthHandler creates a new auth handler with OIDC configuration.
-func NewAuthHandler(ctx context.Context, cfg *config.Config, database *db.DB) (*AuthHandler, error) {
+func NewAuthHandler(ctx context.Context, cfg *config.Config, database *db.DB, oidcProbe *oidchealth.Probe) (*AuthHandler, error) {
 	provider, err := oidc.NewProvider(ctx, cfg.OIDCIssuer)
 	if err != nil {
 		return nil, err
@@ -49,12 +56,21 @@ func NewAuthHandler(ctx context.Context, cfg *config.Config, database *db.DB) (*
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OIDCClientID})
 
+	// Pull end_session_endpoint from discovery metadata (not exposed by Endpoint()).
+	// Optional per the spec; left empty if the provider doesn't advertise it.
+	var providerExtra struct {
+		EndSessionEndpoint string `json:"end_session_endpoint"`
+	}
+	_ = provider.Claims(&providerExtra)
+
 	return &AuthHandler{
-		provider:     provider,
-		oauth2Config: oauth2Config,
-		verifier:     verifier,
-		db:           database,
-		cfg:          cfg,
+		provider:      provider,
+		oauth2Config:  oauth2Config,
+		verifier:      verifier,
+		db:            database,
+		cfg:           cfg,
+		oidcProbe:     oidcProbe,
+		endSessionURL: providerExtra.EndSessionEndpoint,
 	}, nil
 }
 
@@ -100,18 +116,18 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	}
 	oauth2Token, err := h.oauth2Config.Exchange(c.Context(), c.Query("code"), exchangeOpts...)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "failed to exchange code")
+		return h.recoverFromCallbackFailure(c, sess)
 	}
 
 	// Extract and verify ID token
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return fiber.NewError(fiber.StatusBadRequest, "missing id_token")
+		return h.recoverFromCallbackFailure(c, sess)
 	}
 
 	idToken, err := h.verifier.Verify(c.Context(), rawIDToken)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid id_token")
+		return h.recoverFromCallbackFailure(c, sess)
 	}
 
 	// Extract claims from ID token first
@@ -150,13 +166,15 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	email, _ := claimsMap["email"].(string)
 	name, _ := claimsMap["name"].(string)
 	picture, _ := claimsMap["picture"].(string)
+	username, _ := claimsMap["preferred_username"].(string)
 
 	// Upsert user first
 	user := &models.User{
-		Sub:     sub,
-		Email:   email,
-		Name:    name,
-		Picture: picture,
+		Sub:      sub,
+		Username: username,
+		Email:    email,
+		Name:     name,
+		Picture:  picture,
 	}
 	if err := h.db.UpsertUser(c.Context(), user); err != nil {
 		return err
@@ -213,8 +231,17 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 		}
 	}
 
-	// Store session and regenerate ID to prevent session fixation
+	// Stamp last_login_at so admins can see recent sign-in activity on the
+	// user management page. Best-effort: failures don't block login.
+	if err := h.db.UpdateUserLastLogin(c.Context(), user.ID); err != nil {
+		slog.Warn("failed to update last_login_at", "user_id", user.ID, "error", err)
+	}
+
+	// Store session and regenerate ID to prevent session fixation.
+	// Stash the raw ID token so Logout can use it as the id_token_hint for
+	// RP-initiated logout against the OIDC provider.
 	sess.Set("user_sub", sub)
+	sess.Set("id_token", rawIDToken)
 	if err := sess.Regenerate(); err != nil {
 		slog.Error("failed to regenerate session", "error", err)
 	}
@@ -232,13 +259,98 @@ func (h *AuthHandler) Callback(c fiber.Ctx) error {
 	return c.Redirect().To(redirectURL)
 }
 
-// Logout clears the user session.
+// Unavailable renders a page explaining that sign-in is temporarily down.
+// Reached from the auth middleware when the OIDC probe reports the issuer
+// is unreachable, so users aren't bounced to a dead login URL.
+func (h *AuthHandler) Unavailable(c fiber.Ctx) error {
+	return c.Status(fiber.StatusServiceUnavailable).Render("not_found", MergeBranding(fiber.Map{
+		"Title":  "Sign-in Unavailable",
+		"Notice": "Sign-in is temporarily unavailable. Global keywords still work — try /go/<keyword> directly. Please retry the sign-in in a few minutes.",
+	}, h.cfg))
+}
+
+// Logout clears the user session and, when the provider supports it, performs
+// RP-initiated logout so the OIDC server forgets the user too. Falls back to a
+// local-only logout when the provider doesn't advertise end_session_endpoint
+// or the issuer is currently unreachable.
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	sess := session.FromContext(c)
+	var idToken string
 	if sess != nil {
+		if t, ok := sess.Get("id_token").(string); ok {
+			idToken = t
+		}
 		sess.Destroy()
 	}
-	return c.Redirect().To("/")
+
+	if h.endSessionURL == "" || (h.oidcProbe != nil && !h.oidcProbe.IsHealthy()) {
+		return c.Redirect().To("/")
+	}
+
+	q := url.Values{}
+	if idToken != "" {
+		q.Set("id_token_hint", idToken)
+	}
+	q.Set("client_id", h.cfg.OIDCClientID)
+	q.Set("post_logout_redirect_uri", h.cfg.BaseURL+"/")
+
+	return c.Redirect().To(h.endSessionURL + "?" + q.Encode())
+}
+
+// recoverFromCallbackFailure handles OIDC callback errors by attempting to
+// salvage the original /go/:keyword destination via a global-only resolve.
+// On a hit we redirect to the global link; on a miss we render the not_found
+// page with a notice. With no usable target we render an error page.
+func (h *AuthHandler) recoverFromCallbackFailure(c fiber.Ctx, sess *session.Middleware) error {
+	var savedURL string
+	if v := sess.Get("redirect_after_login"); v != nil {
+		savedURL, _ = v.(string)
+		sess.Delete("redirect_after_login")
+	}
+
+	keyword := extractGoKeyword(savedURL)
+	if keyword != "" {
+		resolved, err := h.db.ResolveKeywordForUser(c.Context(), nil, nil, keyword)
+		if err == nil {
+			return c.Redirect().To(resolved.URL)
+		}
+		suggestions, _ := h.db.GetSimilarKeywords(c.Context(), keyword, nil, 5)
+		return c.Status(fiber.StatusNotFound).Render("not_found", MergeBranding(fiber.Map{
+			"Title":       "Not Found",
+			"Keyword":     keyword,
+			"Suggestions": suggestions,
+			"Notice":      callbackFailureNotice,
+		}, h.cfg))
+	}
+
+	return c.Status(fiber.StatusBadGateway).Render("error", MergeBranding(fiber.Map{
+		"Title":      "Authentication Failed",
+		"Message":    callbackFailureNotice,
+		"StatusCode": fiber.StatusBadGateway,
+	}, h.cfg))
+}
+
+// extractGoKeyword pulls a validated keyword out of a stored /go/:keyword URL.
+// Returns the empty string if the URL is not a /go/:keyword path or the
+// keyword fails validation.
+func extractGoKeyword(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	path := parsed.Path
+	const prefix = "/go/"
+	if !strings.HasPrefix(path, prefix) {
+		return ""
+	}
+	keyword := validation.NormalizeKeyword(strings.TrimPrefix(path, prefix))
+	if !validation.ValidateKeyword(keyword) {
+		return ""
+	}
+	return keyword
 }
 
 func generateState() string {
