@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	NotifTypeLinkSubmitted = "link_submitted"
-	NotifTypeLinkApproved  = "link_approved"
-	NotifTypeLinkRejected  = "link_rejected"
+	NotifTypeLinkSubmitted  = "link_submitted"
+	NotifTypeLinkApproved   = "link_approved"
+	NotifTypeLinkRejected   = "link_rejected"
+	NotifTypeEditSuggested  = "edit_suggested"
 )
 
 // Notification represents an in-app notification for a user.

@@ -168,10 +168,6 @@ func clientIP(c fiber.Ctx) string {
 
 // Random redirects to a random link ("I'm Feeling Lucky" feature).
 func (h *RedirectHandler) Random(c fiber.Ctx) error {
-	if !h.cfg.EnableRandomKeywords {
-		return fiber.NewError(fiber.StatusNotFound, "Random links feature is not enabled")
-	}
-
 	user, _ := c.Locals("user").(*models.User)
 
 	var orgID *uuid.UUID

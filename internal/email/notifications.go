@@ -173,6 +173,31 @@ func (n *Notifier) NotifyModeratorsHealthChecksFailed(ctx context.Context, links
 	n.service.SendAsync(emails, subject, htmlBody, textBody)
 }
 
+// NotifyModeratorsEditSuggested notifies moderators when a user suggests an edit to an existing link.
+func (n *Notifier) NotifyModeratorsEditSuggested(ctx context.Context, link *models.Link, requester *models.User, newURL, newDescription, reason string) {
+	if !n.service.IsEnabled() || !n.cfg.EmailNotifyModeratorsOnSubmit {
+		return
+	}
+
+	var emails []string
+	var err error
+
+	if link.Scope == models.ScopeGlobal {
+		emails, err = n.db.GetGlobalModeratorEmails(ctx)
+	} else if link.Scope == models.ScopeOrg && link.OrganizationID != nil {
+		emails, err = n.db.GetOrgModeratorEmails(ctx, *link.OrganizationID)
+	} else {
+		return
+	}
+
+	if err != nil || len(emails) == 0 {
+		return
+	}
+
+	subject, htmlBody, textBody := n.templates.EditSuggestionSubmitted(link, requester, newURL, newDescription, reason)
+	n.service.SendAsync(emails, subject, htmlBody, textBody)
+}
+
 // NotifyWelcome sends a welcome email to a new user.
 func (n *Notifier) NotifyWelcome(ctx context.Context, user *models.User) {
 	if !n.service.IsEnabled() {

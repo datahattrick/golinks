@@ -123,7 +123,7 @@ func Load() *Config {
 		RedisUsername:    getEnv("REDIS_USERNAME", ""),
 		RedisPassword:    getEnv("REDIS_PASSWORD", ""),
 		CORSOrigins:          getEnv("CORS_ORIGINS", ""),
-		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "") != "",
+		EnableRandomKeywords: getEnv("ENABLE_RANDOM_KEYWORDS", "false") == "true",
 		EnablePersonalLinks:  getEnv("ENABLE_PERSONAL_LINKS", "true") != "false",
 		EnableOrgLinks:       getEnv("ENABLE_ORG_LINKS", "true") != "false",
 		RedirectFallbacks:    parseRedirectFallbacks(getEnv("REDIRECT_FALLBACKS", "")),

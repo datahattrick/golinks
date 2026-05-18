@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -82,7 +83,7 @@ func (h *LinkHandler) Index(c fiber.Ctx) error {
 		data["NewestLinks"] = newestLinks
 	}
 
-	// Random links (always fetch for display, config only controls the /random API endpoint)
+	// Discover section always shows 5 random keywords; EnableRandomKeywords only gates the /random endpoint and button.
 	randomLinks, err := h.db.GetRandomApprovedLinks(c.Context(), orgID, 5)
 	if err == nil {
 		data["RandomLinks"] = randomLinks
@@ -806,6 +807,22 @@ func (h *LinkHandler) SubmitSuggestEdit(c fiber.Ctx) error {
 		return err
 	}
 
+	// Notify moderators via bell and email
+	linkCopy, userCopy := link, user
+	go func() {
+		ctx := context.Background()
+		var modIDs []uuid.UUID
+		if linkCopy.Scope == models.ScopeGlobal {
+			modIDs, _ = h.db.GetGlobalModeratorIDs(ctx)
+		} else if linkCopy.Scope == models.ScopeOrg && linkCopy.OrganizationID != nil {
+			modIDs, _ = h.db.GetOrgModeratorIDs(ctx, *linkCopy.OrganizationID)
+		}
+		h.fanOutEditSuggestionNotifications(ctx, modIDs, linkCopy, userCopy)
+		if Notifier != nil {
+			Notifier.NotifyModeratorsEditSuggested(ctx, linkCopy, userCopy, newURL, newDescription, reason)
+		}
+	}()
+
 	orgNames := make(map[string]string)
 	if orgs, err := h.db.GetAllOrganizations(c.Context()); err == nil {
 		for _, org := range orgs {
@@ -878,6 +895,25 @@ func (h *LinkHandler) CheckKeyword(c fiber.Ctx) error {
 	}
 
 	return c.SendString("")
+}
+
+// fanOutEditSuggestionNotifications creates in-app bell notifications for moderators when an edit is suggested.
+func (h *LinkHandler) fanOutEditSuggestionNotifications(ctx context.Context, modIDs []uuid.UUID, link *models.Link, requester *models.User) {
+	if len(modIDs) == 0 {
+		return
+	}
+	ns := make([]models.Notification, 0, len(modIDs))
+	for _, id := range modIDs {
+		ns = append(ns, models.Notification{
+			UserID:    id,
+			Type:      models.NotifTypeEditSuggested,
+			Title:     "Edit suggestion pending review",
+			Body:      fmt.Sprintf(`"%s" edit suggested by %s`, link.Keyword, requester.Name),
+			ActionURL: "/moderation",
+			LinkID:    &link.ID,
+		})
+	}
+	_ = h.db.CreateNotifications(ctx, ns)
 }
 
 // fanOutSubmissionNotifications creates in-app notifications for a list of moderators.

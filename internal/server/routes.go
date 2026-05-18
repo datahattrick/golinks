@@ -135,8 +135,10 @@ func (s *Server) RegisterRoutes(ctx context.Context, database *db.DB, oidcProbe 
 	s.App.Put("/admin/fallback-redirects/:id", authMiddleware.RequireAuth, fallbackHandler.Update)
 	s.App.Delete("/admin/fallback-redirects/:id", authMiddleware.RequireAuth, fallbackHandler.Delete)
 
-	// Random link route ("I'm Feeling Lucky")
-	s.App.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
+	// Random link route ("I'm Feeling Lucky") — only registered when the feature is enabled
+	if s.Cfg.EnableRandomKeywords {
+		s.App.Get("/random", authMiddleware.RequireAuth, redirectHandler.Random)
+	}
 
 	// Redirect route - global links are always accessible; auth is attempted but not required.
 	// Personal/org links resolve naturally when the user is authenticated; unauthenticated

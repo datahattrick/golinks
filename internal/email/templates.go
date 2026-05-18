@@ -360,3 +360,60 @@ Get started at: %s
 
 	return
 }
+
+// EditSuggestionSubmitted generates an email for moderators when a user suggests an edit to a link.
+func (t *Templates) EditSuggestionSubmitted(link *models.Link, requester *models.User, newURL, newDescription, reason string) (subject, htmlBody, textBody string) {
+	subject = fmt.Sprintf("[%s] Edit suggested for link: %s", t.cfg.SiteTitle, link.Keyword)
+
+	content := fmt.Sprintf(`
+        <p>A user has suggested an edit to an existing link and it requires your review.</p>
+        <dl class="link-details">
+            <dt>Keyword</dt>
+            <dd><strong>%s</strong></dd>
+            <dt>Current URL</dt>
+            <dd><a href="%s">%s</a></dd>
+            <dt>Proposed URL</dt>
+            <dd><a href="%s">%s</a></dd>
+            <dt>Proposed Description</dt>
+            <dd>%s</dd>
+            <dt>Reason for edit</dt>
+            <dd>%s</dd>
+            <dt>Suggested by</dt>
+            <dd>%s (%s)</dd>
+        </dl>
+        <p>
+            <a href="%s/moderation" class="button">Review Edit</a>
+        </p>
+    `, html.EscapeString(link.Keyword),
+		html.EscapeString(link.URL),
+		html.EscapeString(link.URL),
+		html.EscapeString(newURL),
+		html.EscapeString(newURL),
+		html.EscapeString(newDescription),
+		html.EscapeString(reason),
+		html.EscapeString(requester.Name),
+		html.EscapeString(requester.Email),
+		t.cfg.BaseURL)
+
+	htmlBody = t.baseHTML(subject, content)
+
+	textBody = fmt.Sprintf(`Edit Suggestion Pending Review
+
+A user has suggested an edit to an existing link and it requires your review.
+
+Keyword: %s
+Current URL: %s
+Proposed URL: %s
+Proposed Description: %s
+Reason: %s
+Suggested by: %s (%s)
+
+Review the edit at: %s/moderation
+
+--
+%s
+%s
+`, link.Keyword, link.URL, newURL, newDescription, reason, requester.Name, requester.Email, t.cfg.BaseURL, t.cfg.SiteTitle, t.cfg.BaseURL)
+
+	return
+}
